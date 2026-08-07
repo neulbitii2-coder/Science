@@ -1,8 +1,11 @@
 name: 웹앱 공개 배포 (GitHub Pages)
 
 # main 에 푸시하면 index.html 을 https://neulbitii2-coder.github.io/Science/ 로 올립니다.
-# configure-pages 의 enablement 옵션이 Pages 를 자동으로 켜 주므로
-# 저장소 설정에서 따로 손댈 필요가 없습니다.
+#
+# ⚠️ 처음 한 번만 저장소 설정을 바꿔야 합니다. 워크플로 토큰에는 Pages 사이트를
+#    "새로 만들" 권한이 없어서(Resource not accessible by integration) 자동화가 안 됩니다.
+#      Settings → Pages → Build and deployment → Source: [GitHub Actions]
+#    한 번 골라 두면 그 뒤로는 main 에 푸시할 때마다 자동 배포됩니다.
 
 on:
   push:
@@ -27,10 +30,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pages 설정 (없으면 자동으로 켬)
+      - name: Pages 설정 확인
+        id: pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
+
+      - name: 설정이 안 되어 있을 때 안내
+        if: failure() && steps.pages.outcome == 'failure'
+        run: |
+          echo "::error::GitHub Pages 가 아직 켜져 있지 않습니다."
+          echo "::error::Settings → Pages → Build and deployment → Source 를 [GitHub Actions] 로 바꾼 뒤"
+          echo "::error::이 워크플로를 다시 실행하세요. https://github.com/${{ github.repository }}/settings/pages"
+          exit 1
 
       - name: 공개할 파일만 모으기
         run: |

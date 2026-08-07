@@ -7,9 +7,23 @@
 
 **https://neulbitii2-coder.github.io/Science/** — 로그인 없이 누구나 접속할 수 있습니다.
 
-처음 한 번은 저장소 설정에서 켜야 합니다.
-**Settings → Pages → Build and deployment → Source: `Deploy from a branch` → Branch: `main` / `(root)` → Save.**
-1~2분 뒤 위 주소가 열립니다.
+처음 한 번은 저장소 설정에서 켜야 합니다. 워크플로 토큰에는 Pages 사이트를 새로 만들 권한이 없어
+(`Resource not accessible by integration`) 이 단계만은 자동화할 수 없습니다.
+
+**[Settings → Pages](../../settings/pages) → Build and deployment → Source → `GitHub Actions`**
+
+고르는 순간부터 `.github/workflows/pages.yml` 이 배포를 맡습니다.
+`main` 에 푸시할 때마다 자동으로 갱신되고, 1~2분 뒤 위 주소가 열립니다.
+
+> `Deploy from a branch` → `main` / `(root)` 를 골라도 됩니다. 그 경우 워크플로는 쓰이지 않으니
+> `.github/workflows/pages.yml` 은 지우세요. 남겨 두면 푸시할 때마다 실패 알림이 옵니다.
+
+### Vercel 로 올리고 싶다면
+
+`index.html` 하나뿐인 정적 사이트라 설정 파일이 필요 없습니다.
+[vercel.com](https://vercel.com) 가입 → **Add New → Project** → 이 저장소 선택 →
+Framework Preset `Other`, Root Directory `./` 그대로 두고 **Deploy**.
+`https://science-....vercel.app` 주소가 나옵니다. 결과물은 GitHub Pages 와 같습니다.
 
 ## 로컬 실행
 
