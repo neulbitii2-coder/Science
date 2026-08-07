@@ -63,12 +63,12 @@ body{
 }
 
 /* ── 머리글 ── */
-header.top{padding:26px 0 20px; border-bottom:1px solid var(--line)}
+header.top{padding:30px 0 24px; border-bottom:1px solid var(--line); text-align:center}
 header.top h1{
   margin:0; font-size:1.7em; font-weight:800; letter-spacing:-.035em; line-height:1.25;
   text-wrap:balance;
 }
-header.top p{margin:7px 0 0; color:var(--sub); font-size:.86em; line-height:1.5}
+header.top p{margin:9px auto 0; color:var(--sub); font-size:.86em; line-height:1.6; max-width:46em}
 
 /* ── 글씨 크기 ── */
 .fsbar{
@@ -145,8 +145,12 @@ textarea::placeholder{color:var(--sub); opacity:.75}
 }
 
 /* ── 결과 ── */
-#result{display:none}
-#result.on{display:block}
+.resting{
+  margin:0; padding:92px 20px; border:1px dashed var(--line); border-radius:3px;
+  background:var(--tint); color:var(--sub); text-align:center;
+  font-size:.86em; line-height:1.7;
+}
+.resting b{color:var(--ink)}
 
 .meter{margin:0 0 22px}
 .meter-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
@@ -222,7 +226,7 @@ mark.h2{background:var(--hl2); color:inherit; border-radius:2px; padding:0 2px;
 .top10{list-style:none; margin:0; padding:0}
 .top10 li{
   display:grid; grid-template-columns:30px 1fr auto; align-items:baseline; gap:14px;
-  padding:11px 0; border-bottom:1px solid var(--line-2);
+  padding:8px 0; border-bottom:1px solid var(--line-2);
 }
 .top10 li:last-child{border-bottom:0}
 .rank{
@@ -332,6 +336,13 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
     <div class="card" id="result">
       <h2><span class="em">📊</span> 판별 결과</h2>
 
+      <p class="resting" id="resting">
+        문자를 붙여넣고 <b>[판별하기]</b>를 누르면<br>
+        위험도와 위험 신호 단어가 여기에 나옵니다.
+      </p>
+
+      <div id="rbody" hidden>
+
       <div class="meter">
         <div class="meter-head">
           <span class="lab">위험도</span>
@@ -364,6 +375,7 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
       <div class="row">
         <button class="btn sec sm" id="rep">🚨 스팸으로 신고하고 보관</button>
         <button class="btn sec sm" id="repok">정상 문자로 보관</button>
+      </div>
       </div>
     </div>
     <!-- 보관함 -->
@@ -662,7 +674,8 @@ function judge(){
   const pct = Math.round(r.p * 100);
   LAST = { text, pct, label: pct >= 70 ? "스미싱" : "정상" };
 
-  $("result").classList.add("on");
+  $("resting").hidden = true;
+  $("rbody").hidden = false;
 
   // 위험도 눈금
   const tone = pct >= 70 ? "var(--danger)" : pct >= 40 ? "var(--warn)" : "var(--safe)";
@@ -751,10 +764,13 @@ function renderTop10(){
   return top;
 }
 
+/* 그림 높이는 칸 너비를 따라간다 — 두 칸으로 나뉘면 자연히 낮아진다 */
+const canvasH = W => Math.round(Math.max(320, Math.min(440, W * 0.70)));
+
 /* ── 워드클라우드 ── */
 function drawCloud(){
   const cv = $("wc"), dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const W = cv.clientWidth || 700, H = 440;
+  const W = cv.clientWidth || 700, H = canvasH(W);
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -883,7 +899,7 @@ function buildPCA(){
 function drawMap(userText){
   if(!PCA) return;
   const cv = $("mapc"), dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const W = cv.clientWidth || 700, H = 440, pad = 22;
+  const W = cv.clientWidth || 700, H = canvasH(W), pad = 22;
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1038,7 +1054,11 @@ const BASE = rowsToDocs(parseCSV(RAW_CSV));
    ========================================================================== */
 $("go").addEventListener("click", judge);
 $("inp").addEventListener("keydown", e => { if(e.ctrlKey && e.key === "Enter") judge(); });
-$("clr").addEventListener("click", () => { $("inp").value = ""; $("result").classList.remove("on"); $("inp").focus(); });
+$("clr").addEventListener("click", () => {
+  $("inp").value = ""; LAST = null;
+  $("rbody").hidden = true; $("resting").hidden = false;
+  $("inp").focus();
+});
 $("ex1").addEventListener("click", () => {
   $("inp").value = "[Web발신]\n[국세청] 종합소득세 환급금 356,000원이 미수령 상태입니다. 신청기한 오늘까지 ㅁㅁ링크";
   judge();
