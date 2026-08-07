@@ -1,0 +1,47 @@
+name: 웹앱 공개 배포 (GitHub Pages)
+
+# main 에 푸시하면 index.html 을 https://neulbitii2-coder.github.io/Science/ 로 올립니다.
+# configure-pages 의 enablement 옵션이 Pages 를 자동으로 켜 주므로
+# 저장소 설정에서 따로 손댈 필요가 없습니다.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pages 설정 (없으면 자동으로 켬)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: 공개할 파일만 모으기
+        run: |
+          mkdir -p _site
+          cp index.html sw.js .nojekyll _site/
+          cp README.md _site/
+          ls -la _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
