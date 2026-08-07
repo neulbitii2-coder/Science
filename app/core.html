@@ -84,6 +84,12 @@ textarea:focus{outline:none; border-color:var(--brand)}
 .btn.dgr{background:var(--danger); color:#fff}
 .btn.ok{background:var(--safe); color:#fff}
 .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+:where(button,textarea,input,a):focus-visible{
+  outline:4px solid var(--brand); outline-offset:3px; border-radius:14px;
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important; animation:none !important; scroll-behavior:auto !important}
+}
 .row > .btn{width:auto; flex:1 1 150px}
 
 /* ── 결과 ───────────────────────────── */
