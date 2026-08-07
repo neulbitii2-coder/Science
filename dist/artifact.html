@@ -86,6 +86,19 @@ header.top p{margin:7px 0 0; color:var(--sub); font-size:.86em; line-height:1.5}
 .fsbtn:hover{background:var(--tint)}
 .fsbtn[aria-pressed="true"]{background:var(--btn-bg); color:var(--btn-fg); border-color:var(--btn-bg)}
 
+/* ── 두 칸 배치 ── */
+.cols{display:grid; grid-template-columns:minmax(0,1fr)}
+@media (min-width:1040px){
+  .wrap{max-width:1220px}
+  .cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:40px}
+  .col-b{border-left:1px solid var(--line); padding-left:40px}
+  .col > .card:first-child{padding-top:26px}
+  .col > .card:last-of-type{padding-bottom:30px}
+  /* 넓은 화면에서는 입력칸을 조금 줄여 판별 결과가 함께 보이게 한다 */
+  textarea{min-height:150px}
+  .btn.big{min-height:66px}
+}
+
 /* ── 구역 ── */
 .card{padding:30px 0; border-bottom:1px solid var(--line-2)}
 .card:last-of-type{border-bottom:0; padding-bottom:34px}
@@ -118,6 +131,11 @@ textarea::placeholder{color:var(--sub); opacity:.75}
 .btn.sec{background:var(--card); color:var(--ink); border-color:var(--line); font-weight:600}
 .btn.sec:hover{background:var(--tint)}
 .btn.sm{min-height:48px; font-size:.82em; padding:0 14px}
+.btn.report{
+  margin-top:8px; min-height:56px; background:none; color:var(--danger);
+  border-color:var(--danger); font-weight:700;
+}
+.btn.report:hover{background:var(--danger-bg)}
 .row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
 .row > .btn{width:auto; flex:1 1 140px}
 :where(button,textarea,input,a):focus-visible{outline:3px solid var(--brand); outline-offset:2px}
@@ -294,110 +312,113 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
     <button class="fsbtn" data-fs="29" aria-pressed="false">아주 크게</button>
   </div>
 
-  <!-- 입력 -->
-  <div class="card">
-    <h2>문자 내용을 붙여넣으세요</h2>
-    <textarea id="inp" placeholder="예) [Web발신]&#10;[국세청] 종합소득세 환급금 356,000원이 미수령 상태입니다. 신청 ㅁㅁ링크"></textarea>
-    <button class="btn big" id="go">🔍 판별하기</button>
-    <div class="row">
-      <button class="btn sec sm" id="clr">지우기</button>
-      <button class="btn sec sm" id="ex1">스미싱 예시</button>
-      <button class="btn sec sm" id="ex2">정상 예시</button>
-    </div>
-    <p class="hint">입력한 문자는 서버로 전송되지 않습니다. 판별은 모두 이 브라우저 안에서 이루어집니다.</p>
-  </div>
-
-  <!-- 결과 -->
-  <div class="card" id="result">
-    <h2><span class="em">📊</span> 판별 결과</h2>
-
-    <div class="meter">
-      <div class="meter-head">
-        <span class="lab">위험도</span>
-        <span class="num" id="pct">0%</span>
+  <div class="cols">
+   <div class="col col-a">
+    <!-- 입력 -->
+    <div class="card">
+      <h2>문자 내용을 붙여넣으세요</h2>
+      <textarea id="inp" placeholder="예) [Web발신]&#10;[국세청] 종합소득세 환급금 356,000원이 미수령 상태입니다. 신청 ㅁㅁ링크"></textarea>
+      <button class="btn big" id="go">🔍 판별하기</button>
+      <button class="btn report" id="repInput">🚨 스팸 문자로 신고하기</button>
+      <div class="row">
+        <button class="btn sec sm" id="clr">지우기</button>
+        <button class="btn sec sm" id="ex1">스미싱 예시</button>
+        <button class="btn sec sm" id="ex2">정상 예시</button>
       </div>
-      <div class="meter-track" role="img" aria-label="위험도 눈금">
-        <div class="meter-fill" id="mfill"></div>
-        <i class="tick" style="left:40%"></i>
-        <i class="tick" style="left:70%"></i>
-        <div class="meter-pin" id="arc"></div>
+      <p class="hint">입력한 문자는 서버로 전송되지 않습니다. 판별은 모두 이 브라우저 안에서 이루어집니다.</p>
+    </div>
+    <!-- 결과 -->
+    <div class="card" id="result">
+      <h2><span class="em">📊</span> 판별 결과</h2>
+
+      <div class="meter">
+        <div class="meter-head">
+          <span class="lab">위험도</span>
+          <span class="num" id="pct">0%</span>
+        </div>
+        <div class="meter-track" role="img" aria-label="위험도 눈금">
+          <div class="meter-fill" id="mfill"></div>
+          <i class="tick" style="left:40%"></i>
+          <i class="tick" style="left:70%"></i>
+          <div class="meter-pin" id="arc"></div>
+        </div>
+        <div class="meter-scale"><span>안전</span><span>주의</span><span>위험</span></div>
       </div>
-      <div class="meter-scale"><span>안전</span><span>주의</span><span>위험</span></div>
-    </div>
 
-    <div class="verdict" id="vbox">
-      <div class="ico" id="vico">❓</div>
-      <div>
-        <div class="t1" id="vtitle">-</div>
-        <div class="t2" id="vsub">-</div>
+      <div class="verdict" id="vbox">
+        <div class="ico" id="vico">❓</div>
+        <div>
+          <div class="t1" id="vtitle">-</div>
+          <div class="t2" id="vsub">-</div>
+        </div>
+      </div>
+
+      <p class="sub-h">🖍️ 위험 신호 단어 표시</p>
+      <div class="msgbox" id="hl"></div>
+      <div class="chips" id="chips"></div>
+      <p class="hint">색이 진할수록 스미싱 문자에 자주 나오는 단어입니다. 옆의 숫자는 그 단어가 위험도를 얼마나 끌어올렸는지를 뜻합니다.</p>
+
+      <div class="tip" id="tip"></div>
+
+      <div class="row">
+        <button class="btn sec sm" id="rep">🚨 스팸으로 신고하고 보관</button>
+        <button class="btn sec sm" id="repok">정상 문자로 보관</button>
       </div>
     </div>
+   </div>
 
-    <p class="sub-h">🖍️ 위험 신호 단어 표시</p>
-    <div class="msgbox" id="hl"></div>
-    <div class="chips" id="chips"></div>
-    <p class="hint">색이 진할수록 스미싱 문자에 자주 나오는 단어입니다. 옆의 숫자는 그 단어가 위험도를 얼마나 끌어올렸는지를 뜻합니다.</p>
-
-    <div class="tip" id="tip"></div>
-
-    <div class="row">
-      <button class="btn sec sm" id="rep">🚨 스팸으로 신고하고 보관</button>
-      <button class="btn sec sm" id="repok">정상 문자로 보관</button>
+   <div class="col col-b">
+    <!-- TOP 10 -->
+    <div class="card">
+      <h2><span class="em">🚨</span> 사기 신호 단어 TOP 10</h2>
+      <ol class="top10" id="top10"></ol>
+      <p class="hint">학습 데이터에서 스미싱 문자에 유난히 많이 나온 단어 순위입니다.
+        학습 문자 <b id="s3">-</b>건 · 5-겹 교차검증 정확도 <b id="s4">-</b>.</p>
     </div>
-  </div>
-
-  <!-- TOP 10 -->
-  <div class="card">
-    <h2><span class="em">🚨</span> 사기 신호 단어 TOP 10</h2>
-    <ol class="top10" id="top10"></ol>
-    <p class="hint">학습 데이터에서 스미싱 문자에 유난히 많이 나온 단어 순위입니다.
-      학습 문자 <b id="s3">-</b>건 · 5-겹 교차검증 정확도 <b id="s4">-</b>.</p>
-  </div>
-
-  <!-- 워드클라우드 -->
-  <div class="card">
-    <h2><span class="em">☁️</span> 스미싱 문자 워드클라우드</h2>
-    <canvas id="wc" height="440"></canvas>
-    <p class="hint">글씨가 클수록 스미싱 문자에서 강한 신호로 쓰이는 단어입니다.</p>
-  </div>
-
-  <!-- 점지도 -->
-  <div class="card">
-    <h2><span class="em">🗺️</span> 문자 분포 점지도</h2>
-    <canvas id="mapc" height="440"></canvas>
-    <div class="legend">
-      <span><b class="sw-s"></b>스미싱</span>
-      <span><b class="sw-n"></b>정상</span>
-      <span><b class="sw-me"></b>내가 입력한 문자</span>
+    <!-- 워드클라우드 -->
+    <div class="card">
+      <h2><span class="em">☁️</span> 스미싱 문자 워드클라우드</h2>
+      <canvas id="wc" height="440"></canvas>
+      <p class="hint">글씨가 클수록 스미싱 문자에서 강한 신호로 쓰이는 단어입니다.</p>
     </div>
-    <p class="hint">학습 문자 1,000건을 2차원에 찍은 지도입니다. <b>가로축</b>은 모델이 배운 스미싱 신호의 세기,
-      <b>세로축</b>은 그 외 문자들이 가장 크게 갈리는 방향(주성분)입니다. 서로 가까운 점일수록 단어 구성이 비슷합니다.</p>
-  </div>
-
-  <!-- 보관함 -->
-  <div class="card">
-    <h2><span class="em">🗄️</span> 신고 문자 보관함</h2>
-
-    <p class="stat-inline">
-      보관 <b id="s1">0</b>건 · 그중 스미싱 <b id="s2">0</b>건
-    </p>
-
-    <label class="sw"><input type="checkbox" id="auto" checked>
-      스미싱으로 판정된 문자를 자동으로 보관하기</label>
-    <label class="sw" id="shareRow" hidden><input type="checkbox" id="share" checked>
-      신고한 문자를 공유 수집함에도 보내기</label>
-    <p class="hint" id="shareState" hidden></p>
-
-    <div class="row">
-      <button class="btn sec sm" id="exp">CSV 내려받기</button>
-      <button class="btn sec sm" id="del">전부 지우기</button>
+    <!-- 점지도 -->
+    <div class="card">
+      <h2><span class="em">🗺️</span> 문자 분포 점지도</h2>
+      <canvas id="mapc" height="440"></canvas>
+      <div class="legend">
+        <span><b class="sw-s"></b>스미싱</span>
+        <span><b class="sw-n"></b>정상</span>
+        <span><b class="sw-me"></b>내가 입력한 문자</span>
+      </div>
+      <p class="hint">학습 문자 1,000건을 2차원에 찍은 지도입니다. <b>가로축</b>은 모델이 배운 스미싱 신호의 세기,
+        <b>세로축</b>은 그 외 문자들이 가장 크게 갈리는 방향(주성분)입니다. 서로 가까운 점일수록 단어 구성이 비슷합니다.</p>
     </div>
+    <!-- 보관함 -->
+    <div class="card">
+      <h2><span class="em">🗄️</span> 신고 문자 보관함</h2>
 
-    <table class="store">
-      <thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
-      <tbody id="stbody"></tbody>
-    </table>
-    <p class="hint">보관한 문자는 <b>이 기기의 브라우저에</b> 남습니다(최대 500건). [전부 지우기]로 언제든 삭제됩니다.</p>
+      <p class="stat-inline">
+        보관 <b id="s1">0</b>건 · 그중 스미싱 <b id="s2">0</b>건
+      </p>
+
+      <label class="sw"><input type="checkbox" id="auto" checked>
+        스미싱으로 판정된 문자를 자동으로 보관하기</label>
+      <label class="sw" id="shareRow" hidden><input type="checkbox" id="share" checked>
+        신고한 문자를 공유 수집함에도 보내기</label>
+      <p class="hint" id="shareState" hidden></p>
+
+      <div class="row">
+        <button class="btn sec sm" id="exp">CSV 내려받기</button>
+        <button class="btn sec sm" id="del">전부 지우기</button>
+      </div>
+
+      <table class="store">
+        <thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
+        <tbody id="stbody"></tbody>
+      </table>
+      <p class="hint">보관한 문자는 <b>이 기기의 브라우저에</b> 남습니다(최대 500건). [전부 지우기]로 언제든 삭제됩니다.</p>
+    </div>
+   </div>
   </div>
  </div>
 
@@ -407,7 +428,7 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
     창을 닫으면 남지 않습니다.<br>
     통계로 짐작하는 도구라 결과가 늘 맞지는 않습니다. 마지막 판단은 직접 하세요.<br><br>
     의심되면 <b>링크를 누르지 마시고</b> 경찰청 <b>112</b> · 인터넷진흥원 <b>118</b> · 금융감독원 <b>1332</b>로 문의하세요.<br><br>
-    <span class="build">화면 갱신 2026-08-07 02:19 UTC</span>
+    <span class="build">화면 갱신 2026-08-07 02:31 UTC</span>
   </footer>
 </div>
 
@@ -2574,11 +2595,12 @@ const save = a => { try{ localStorage.setItem(KEY, JSON.stringify(a.slice(-500))
 
 function store(text, label, pct, silent){
   const a = load();
-  if(a.some(r => r.text === text && r.label === label)){ if(!silent) toast("이미 보관된 문자입니다."); return; }
+  if(a.some(r => r.text === text && r.label === label)){ if(!silent) toast("이미 보관된 문자입니다."); return false; }
   const rec = { text, label, pct: pct ?? null, ts: Date.now() };
   a.push(rec); save(a); renderStore();
   sendShared(rec);
-  toast(label === "스미싱" ? "스팸 문자로 보관했습니다." : "정상 문자로 보관했습니다.");
+  toast(label === "스미싱" ? "스팸 문자로 신고하고 보관했습니다." : "정상 문자로 보관했습니다.");
+  return true;
 }
 
 function renderStore(){
@@ -2678,6 +2700,17 @@ $("ex2").addEventListener("click", () => {
   $("inp").value = "[CJ대한통운] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 010-2847-1193";
   judge();
 });
+/* 붙여넣기 칸에서 바로 신고 — 판별 결과를 보여주고 보관까지 한다 */
+$("repInput").addEventListener("click", () => {
+  const text = $("inp").value.trim();
+  if(!text){ toast("신고할 문자를 먼저 붙여넣어 주세요."); $("inp").focus(); return; }
+  // 판별이 자동 보관을 먼저 해버리므로, 눌렀을 때의 상태로 안내 문구를 정한다
+  const already = load().some(r => r.text === text && r.label === "스미싱");
+  judge();
+  store(LAST.text, "스미싱", LAST.pct, true);
+  toast(already ? "이미 신고한 문자입니다." : "스팸 문자로 신고하고 보관했습니다.");
+});
+
 $("rep").addEventListener("click",   () => LAST ? store(LAST.text, "스미싱", LAST.pct) : toast("먼저 문자를 판별해 주세요."));
 $("repok").addEventListener("click", () => LAST ? store(LAST.text, "정상",   LAST.pct) : toast("먼저 문자를 판별해 주세요."));
 
