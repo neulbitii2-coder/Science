@@ -267,6 +267,7 @@ footer{
   max-width:760px; margin:0 auto;
 }
 footer b{color:var(--ink)}
+footer .build{opacity:.65; font-variant-numeric:tabular-nums; letter-spacing:.04em}
 footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
 
 .toast{
@@ -413,7 +414,8 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
     입력한 문자는 어디에도 저장되거나 전송되지 않습니다. 판별은 전부 이 브라우저 안에서 끝나고,
     창을 닫으면 남지 않습니다.<br>
     통계로 짐작하는 도구라 결과가 늘 맞지는 않습니다. 마지막 판단은 직접 하세요.<br><br>
-    의심되면 <b>링크를 누르지 마시고</b> 경찰청 <b>112</b> · 인터넷진흥원 <b>118</b> · 금융감독원 <b>1332</b>로 문의하세요.
+    의심되면 <b>링크를 누르지 마시고</b> 경찰청 <b>112</b> · 인터넷진흥원 <b>118</b> · 금융감독원 <b>1332</b>로 문의하세요.<br><br>
+    <span class="build">화면 갱신 2026-08-07 02:19 UTC</span>
   </footer>
 </div>
 
@@ -2779,9 +2781,22 @@ window.addEventListener("resize", () => {
 
   // sw.js 를 같은 폴더에 두면 오프라인까지 지원 (없으면 조용히 넘어감)
   if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    // 새 버전이 넘겨받으면 한 번만 새로고침해서 방문자가 바로 최신 화면을 보게 한다
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if(!hadController || reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
     window.addEventListener("load", () => {
-      fetch("sw.js", { method: "HEAD" })
-        .then(r => { if(r.ok) navigator.serviceWorker.register("sw.js").catch(() => {}); })
+      fetch("sw.js", { method: "HEAD", cache: "no-store" })
+        .then(r => {
+          if(!r.ok) return;
+          // updateViaCache:none — sw.js 자체는 항상 서버에 확인한다
+          return navigator.serviceWorker.register("sw.js", { updateViaCache: "none" })
+            .then(reg => reg.update().catch(() => {}));
+        })
         .catch(() => {});
     });
   }

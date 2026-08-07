@@ -9,6 +9,7 @@ app/core.html + data/messages_1000.csv  ->  index.html (단일 파일 웹앱)
     python3 data/build.py
 """
 
+import datetime
 import os
 import re
 
@@ -58,6 +59,10 @@ def main():
     if url and not url.startswith("https://script.google.com/"):
         raise SystemExit(f"collect_url.txt 가 구글 Apps Script 주소가 아닙니다: {url}")
     injected = injected.replace("__COLLECT_URL__", url.replace('"', ""))
+    injected = injected.replace(
+        "__BUILD__",
+        datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    )
     print("공유 수집함  :", url or "(설정 안 함 — 방문자 브라우저에만 보관)")
 
     # <title> / <meta description> 은 단일 파일 버전에서 <head> 로 옮긴다
