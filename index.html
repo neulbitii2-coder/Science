@@ -11,187 +11,260 @@
 <style>
 :root{
   --fs: 20px;
-  --bg:#f4f6fa; --card:#ffffff; --ink:#16202e; --sub:#5b6b80; --line:#dde4ee;
-  --danger:#d32d2d; --danger-bg:#fdeaea; --danger-ink:#8f1c1c;
-  --warn:#e08600; --warn-bg:#fff4e0;
-  --safe:#1e7a45; --safe-bg:#e6f5ec;
-  --brand:#1b4fa8; --brand-ink:#0f3170;
-  --hl1:#ffd9d9; --hl2:#ff9a9a;
+  /* 종이와 잉크 — 인쇄된 안내문의 색 */
+  --bg:#f2f3f1; --card:#ffffff; --tint:#f7f8f6;
+  --ink:#16202a; --sub:#5a6870; --line:#d7dcd9; --line-2:#e8ebe8;
+  --danger:#b62d21; --danger-bg:#fbeeec; --danger-ink:#8a2118;
+  --warn:#9c6100;  --warn-bg:#fbf3e4;
+  --safe:#0e6647;  --safe-bg:#eaf3ee;
+  --brand:#1e3a5c; --brand-ink:#16293f;
+  --btn-bg:#1e3a5c; --btn-fg:#ffffff; --btn-bg-hi:#16293f;
+  --hl1:#fbe3de; --hl2:#f4b6ab;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#11151c; --card:#1a212b; --ink:#e9eef6; --sub:#9fb0c6; --line:#2c3746;
-    --danger:#ff6b6b; --danger-bg:#3a1c1c; --danger-ink:#ffb3b3;
-    --warn:#ffb545; --warn-bg:#3a2c12;
-    --safe:#5fd894; --safe-bg:#14301f;
-    --brand:#7ab0ff; --brand-ink:#bcd7ff;
-    --hl1:#5a2020; --hl2:#8f2a2a;
+    --bg:#0f1316; --card:#171c20; --tint:#1c2226;
+    --ink:#e7ecea; --sub:#93a2a6; --line:#2b3338; --line-2:#232a2e;
+    --danger:#ef6a5c; --danger-bg:#341a16; --danger-ink:#f7b3a9;
+    --warn:#d79b32;  --warn-bg:#332711;
+    --safe:#4fbd8d;  --safe-bg:#12291f;
+    --brand:#8fb6dd; --brand-ink:#cfe2f3;
+    --btn-bg:#7fa9d4; --btn-fg:#0d1418; --btn-bg-hi:#a8c8e6;
+    --hl1:#45211c; --hl2:#7a352b;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#11151c; --card:#1a212b; --ink:#e9eef6; --sub:#9fb0c6; --line:#2c3746;
-  --danger:#ff6b6b; --danger-bg:#3a1c1c; --danger-ink:#ffb3b3;
-  --warn:#ffb545; --warn-bg:#3a2c12;
-  --safe:#5fd894; --safe-bg:#14301f;
-  --brand:#7ab0ff; --brand-ink:#bcd7ff;
-  --hl1:#5a2020; --hl2:#8f2a2a;
+  --bg:#0f1316; --card:#171c20; --tint:#1c2226;
+  --ink:#e7ecea; --sub:#93a2a6; --line:#2b3338; --line-2:#232a2e;
+  --danger:#ef6a5c; --danger-bg:#341a16; --danger-ink:#f7b3a9;
+  --warn:#d79b32;  --warn-bg:#332711;
+  --safe:#4fbd8d;  --safe-bg:#12291f;
+  --brand:#8fb6dd; --brand-ink:#cfe2f3;
+  --btn-bg:#7fa9d4; --btn-fg:#0d1418; --btn-bg-hi:#a8c8e6;
+  --hl1:#45211c; --hl2:#7a352b;
 }
 :root[data-theme="light"]{
-  --bg:#f4f6fa; --card:#ffffff; --ink:#16202e; --sub:#5b6b80; --line:#dde4ee;
-  --danger:#d32d2d; --danger-bg:#fdeaea; --danger-ink:#8f1c1c;
-  --warn:#e08600; --warn-bg:#fff4e0;
-  --safe:#1e7a45; --safe-bg:#e6f5ec;
-  --brand:#1b4fa8; --brand-ink:#0f3170;
-  --hl1:#ffd9d9; --hl2:#ff9a9a;
+  --bg:#f2f3f1; --card:#ffffff; --tint:#f7f8f6;
+  --ink:#16202a; --sub:#5a6870; --line:#d7dcd9; --line-2:#e8ebe8;
+  --danger:#b62d21; --danger-bg:#fbeeec; --danger-ink:#8a2118;
+  --warn:#9c6100;  --warn-bg:#fbf3e4;
+  --safe:#0e6647;  --safe-bg:#eaf3ee;
+  --brand:#1e3a5c; --brand-ink:#16293f;
+  --btn-bg:#1e3a5c; --btn-fg:#ffffff; --btn-bg-hi:#16293f;
+  --hl1:#fbe3de; --hl2:#f4b6ab;
 }
 
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--bg); color:var(--ink);
   font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
-  font-size:var(--fs); line-height:1.65; -webkit-text-size-adjust:100%;
+  font-size:var(--fs); line-height:1.7; -webkit-text-size-adjust:100%;
 }
-.wrap{max-width:820px; margin:0 auto; padding:16px 14px 64px}
+.num,.wnum,.rank,.meter-scale,.stat-inline{font-variant-numeric:tabular-nums}
 
-header.top{
-  background:linear-gradient(135deg,#1b4fa8,#2b6fd6);
-  color:#fff; border-radius:20px; padding:22px 20px; margin-bottom:16px;
+.wrap{max-width:760px; margin:0 auto; padding:0 0 4px}
+.sheet{
+  background:var(--card); border:1px solid var(--line);
+  border-top:5px solid var(--brand); border-radius:0 0 4px 4px;
+  padding:0 clamp(18px,4.5vw,44px);
 }
-header.top h1{margin:0 0 6px; font-size:1.75em; letter-spacing:-.02em}
-header.top p{margin:0; font-size:.95em; opacity:.92}
 
-.card{
-  background:var(--card); border:2px solid var(--line); border-radius:20px;
-  padding:20px; margin-bottom:16px;
+/* ── 머리글 ── */
+header.top{padding:26px 0 20px; border-bottom:1px solid var(--line)}
+header.top h1{
+  margin:0; font-size:1.7em; font-weight:800; letter-spacing:-.035em; line-height:1.25;
+  text-wrap:balance;
 }
+header.top p{margin:7px 0 0; color:var(--sub); font-size:.86em; line-height:1.5}
+
+/* ── 글씨 크기 ── */
+.fsbar{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  padding:13px 0; border-bottom:1px solid var(--line-2);
+}
+.fsbar span{
+  font-size:.7em; font-weight:700; color:var(--sub);
+  letter-spacing:.06em; margin-right:2px;
+}
+.fsbtn{
+  border:1px solid var(--line); background:var(--card); color:var(--ink);
+  border-radius:3px; padding:8px 15px; font:inherit; font-size:.8em; font-weight:700;
+  cursor:pointer; transition:background .12s,border-color .12s;
+}
+.fsbtn:hover{background:var(--tint)}
+.fsbtn[aria-pressed="true"]{background:var(--btn-bg); color:var(--btn-fg); border-color:var(--btn-bg)}
+
+/* ── 구역 ── */
+.card{padding:30px 0; border-bottom:1px solid var(--line-2)}
+.card:last-of-type{border-bottom:0; padding-bottom:34px}
 .card h2{
-  margin:0 0 14px; font-size:1.25em; display:flex; align-items:center; gap:9px;
+  margin:0 0 16px; font-size:1.16em; font-weight:800; letter-spacing:-.015em;
+  display:flex; align-items:baseline; gap:8px;
 }
-.card h2 .em{font-size:1.15em}
-.hint{color:var(--sub); font-size:.85em; margin:8px 0 0; line-height:1.55}
+.card h2 .em{font-size:.95em}
+.hint{color:var(--sub); font-size:.78em; line-height:1.6; margin:10px 0 0}
 
+/* ── 입력 ── */
 textarea{
-  width:100%; min-height:190px; padding:16px; border-radius:16px;
-  border:3px solid var(--line); background:var(--bg); color:var(--ink);
-  font:inherit; font-size:1.05em; line-height:1.6; resize:vertical;
+  width:100%; min-height:180px; padding:15px 16px; border-radius:4px;
+  border:1px solid var(--line); background:var(--tint); color:var(--ink);
+  font:inherit; font-size:1em; line-height:1.65; resize:vertical;
 }
-textarea:focus{outline:none; border-color:var(--brand)}
+textarea:focus{outline:none; border-color:var(--brand); background:var(--card);
+  box-shadow:inset 0 0 0 1px var(--brand)}
+textarea::placeholder{color:var(--sub); opacity:.75}
 
 .btn{
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  min-height:64px; padding:0 22px; border-radius:16px; border:3px solid transparent;
-  font:inherit; font-size:1.1em; font-weight:800; cursor:pointer; width:100%;
-  background:var(--brand); color:#fff; transition:filter .15s, transform .05s;
+  min-height:60px; padding:0 20px; border-radius:4px; border:1px solid transparent;
+  font:inherit; font-size:1em; font-weight:700; cursor:pointer; width:100%;
+  background:var(--btn-bg); color:var(--btn-fg); transition:background .12s;
 }
+.btn:hover{background:var(--btn-bg-hi)}
 .btn:active{transform:translateY(1px)}
-.btn:hover{filter:brightness(1.08)}
-.btn.big{min-height:82px; font-size:1.4em; margin-top:14px}
-.btn.sec{background:var(--card); color:var(--ink); border-color:var(--line)}
-.btn.sm{min-height:52px; font-size:.92em; padding:0 14px}
-.btn.dgr{background:var(--danger); color:#fff}
-.btn.ok{background:var(--safe); color:#fff}
-.row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
-:where(button,textarea,input,a):focus-visible{
-  outline:4px solid var(--brand); outline-offset:3px; border-radius:14px;
-}
+.btn.big{min-height:74px; font-size:1.2em; font-weight:800; letter-spacing:-.01em; margin-top:14px}
+.btn.sec{background:var(--card); color:var(--ink); border-color:var(--line); font-weight:600}
+.btn.sec:hover{background:var(--tint)}
+.btn.sm{min-height:48px; font-size:.82em; padding:0 14px}
+.row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+.row > .btn{width:auto; flex:1 1 140px}
+:where(button,textarea,input,a):focus-visible{outline:3px solid var(--brand); outline-offset:2px}
 @media (prefers-reduced-motion: reduce){
   *{transition:none !important; animation:none !important; scroll-behavior:auto !important}
 }
-.row > .btn{width:auto; flex:1 1 150px}
 
-/* ── 결과 ───────────────────────────── */
+/* ── 결과 ── */
 #result{display:none}
 #result.on{display:block}
-.verdict{
-  display:flex; align-items:center; gap:14px; padding:18px; border-radius:16px;
-  border:3px solid; margin-bottom:16px;
+
+.meter{margin:0 0 22px}
+.meter-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+.meter-head .lab{font-size:.72em; font-weight:700; letter-spacing:.06em; color:var(--sub)}
+.meter .num{font-size:2.6em; font-weight:800; letter-spacing:-.045em; line-height:1.1}
+.meter-track{
+  position:relative; height:16px; margin-top:8px; border-radius:2px;
+  border:1px solid var(--line);
+  background:linear-gradient(90deg,
+    var(--safe-bg) 0 40%, var(--warn-bg) 40% 70%, var(--danger-bg) 70% 100%);
 }
-.verdict .ico{font-size:2.6em; line-height:1}
-.verdict .t1{font-size:1.5em; font-weight:900; letter-spacing:-.02em}
-.verdict .t2{font-size:.88em; opacity:.9}
+.meter-track .tick{position:absolute; top:-1px; bottom:-1px; width:1px; background:var(--line)}
+.meter-fill{
+  position:absolute; top:0; bottom:0; left:0; width:0; opacity:.4;
+  transition:width .55s cubic-bezier(.2,.7,.3,1);
+}
+.meter-pin{
+  position:absolute; top:-6px; bottom:-6px; width:5px; margin-left:-2.5px; left:0;
+  background:var(--ink); border-radius:1px; transition:left .55s cubic-bezier(.2,.7,.3,1);
+  box-shadow:0 0 0 2px var(--card);
+}
+.meter-scale{
+  display:grid; grid-template-columns:40fr 30fr 30fr;
+  margin-top:8px; font-size:.74em; color:var(--sub); font-weight:700; letter-spacing:.04em;
+}
+.meter-scale span{text-align:center}
+.meter-scale span:first-child{text-align:left}
+.meter-scale span:last-child{text-align:right}
+
+.verdict{
+  display:flex; align-items:flex-start; gap:13px; padding:16px 18px;
+  border-radius:3px; border-left:6px solid; margin-bottom:26px;
+}
+.verdict .ico{font-size:1.9em; line-height:1.2}
+.verdict .t1{font-size:1.28em; font-weight:800; letter-spacing:-.025em; line-height:1.35}
+.verdict .t2{font-size:.82em; opacity:.92; margin-top:2px}
 .v-danger{background:var(--danger-bg); border-color:var(--danger); color:var(--danger-ink)}
 .v-warn{background:var(--warn-bg); border-color:var(--warn)}
 .v-safe{background:var(--safe-bg); border-color:var(--safe)}
 
-.gauge{text-align:center; margin:4px 0 18px}
-.gauge svg{width:100%; max-width:340px; height:auto}
-.gauge .num{font-size:2.9em; font-weight:900; letter-spacing:-.03em}
-.gauge .cap{color:var(--sub); font-size:.85em; margin-top:-6px}
-
+.sub-h{
+  margin:0 0 11px; font-size:.72em; font-weight:700; letter-spacing:.06em;
+  color:var(--sub); padding-bottom:7px; border-bottom:1px solid var(--line-2);
+}
 .msgbox{
-  background:var(--bg); border:2px solid var(--line); border-radius:14px;
-  padding:16px; white-space:pre-wrap; word-break:break-all; font-size:1.02em;
+  background:var(--tint); border:1px solid var(--line); border-radius:3px;
+  padding:15px 16px; white-space:pre-wrap; word-break:break-all; font-size:.97em; line-height:1.75;
 }
-mark.h1{background:var(--hl1); color:inherit; border-radius:5px; padding:1px 3px}
-mark.h2{background:var(--hl2); color:inherit; border-radius:5px; padding:1px 3px; font-weight:800;
-        box-shadow:inset 0 -3px 0 var(--danger)}
+mark.h1{background:var(--hl1); color:inherit; border-radius:2px; padding:0 2px}
+mark.h2{background:var(--hl2); color:inherit; border-radius:2px; padding:0 2px;
+        font-weight:700; box-shadow:inset 0 -2px 0 var(--danger)}
 
-.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:11px}
 .chip{
-  background:var(--danger-bg); color:var(--danger-ink); border:2px solid var(--danger);
-  border-radius:999px; padding:5px 13px; font-size:.85em; font-weight:800;
+  background:none; color:var(--danger-ink); border:1px solid var(--danger);
+  border-radius:2px; padding:3px 9px; font-size:.75em; font-weight:700;
 }
-.chip.safe{background:var(--safe-bg); color:var(--safe); border-color:var(--safe)}
+.chip small{opacity:.7; font-weight:600}
+.chip.safe{color:var(--safe); border-color:var(--safe)}
 
 .tip{
-  margin-top:16px; background:var(--warn-bg); border-left:8px solid var(--warn);
-  border-radius:12px; padding:14px 16px; font-size:.92em;
+  margin-top:22px; background:var(--tint); border:1px solid var(--line);
+  border-radius:3px; padding:15px 18px; font-size:.85em;
 }
-.tip > b{display:block; margin-bottom:6px; font-size:1.05em}
-.tip ul{margin:0; padding-left:1.2em}
-.tip li{margin:4px 0}
+.tip > b{
+  display:block; margin-bottom:8px; font-size:.85em; font-weight:700;
+  letter-spacing:.06em; color:var(--sub);
+}
+.tip ul{margin:0; padding-left:1.15em}
+.tip li{margin:5px 0; line-height:1.65}
 
-/* ── TOP 10 ─────────────────────────── */
-.top10{list-style:none; margin:0; padding:0; counter-reset:r}
+/* ── TOP 10 ── */
+.top10{list-style:none; margin:0; padding:0}
 .top10 li{
-  display:grid; grid-template-columns:44px 1fr auto; align-items:center; gap:12px;
-  padding:9px 0; border-bottom:1px solid var(--line);
+  display:grid; grid-template-columns:30px 1fr auto; align-items:baseline; gap:14px;
+  padding:11px 0; border-bottom:1px solid var(--line-2);
 }
 .top10 li:last-child{border-bottom:0}
 .rank{
-  width:40px; height:40px; border-radius:12px; background:var(--danger); color:#fff;
-  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:.95em;
+  font-size:.8em; font-weight:700; color:var(--sub); text-align:right;
+  font-feature-settings:"tnum";
 }
-.top10 li:nth-child(n+4) .rank{background:var(--sub)}
-.wname{font-weight:800; word-break:break-all}
-.bar{height:12px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:5px}
-.bar > i{display:block; height:100%; background:var(--danger); border-radius:99px}
-.wnum{color:var(--sub); font-size:.8em; white-space:nowrap; text-align:right}
+.top10 li:nth-child(-n+3) .rank{color:var(--danger)}
+.wname{font-weight:700; word-break:break-all; letter-spacing:-.01em}
+.bar{height:3px; background:var(--line-2); overflow:hidden; margin-top:7px}
+.bar > i{display:block; height:100%; background:var(--danger)}
+.top10 li:nth-child(n+4) .bar > i{background:var(--sub)}
+.wnum{color:var(--sub); font-size:.7em; white-space:nowrap; text-align:right; line-height:1.5}
 
-canvas{width:100%; height:auto; display:block; border-radius:14px; background:var(--bg)}
-.legend{display:flex; gap:16px; justify-content:center; margin-top:10px; font-size:.85em; color:var(--sub); flex-wrap:wrap}
-.legend b{display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; margin-right:5px}
+canvas{width:100%; height:auto; display:block; border:1px solid var(--line);
+  border-radius:3px; background:var(--tint)}
+.legend{display:flex; gap:18px; justify-content:center; margin-top:11px;
+  font-size:.72em; color:var(--sub); font-weight:700; flex-wrap:wrap}
+.legend b{display:inline-block; width:9px; height:9px; border-radius:50%;
+  vertical-align:1px; margin-right:6px}
+.legend .sw-s{background:var(--danger)}
+.legend .sw-n{background:var(--brand)}
+.legend .sw-me{background:var(--ink); box-shadow:0 0 0 2px var(--card)}
 
-
-.fsbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px}
-.fsbar span{font-size:.85em; color:var(--sub); font-weight:700}
-.fsbtn{
-  border:2px solid var(--line); background:var(--card); color:var(--ink);
-  border-radius:12px; padding:9px 15px; font:inherit; font-weight:800; cursor:pointer;
+footer{
+  color:var(--sub); font-size:.72em; line-height:1.85; padding:22px 4px 44px;
+  max-width:760px; margin:0 auto;
 }
-.fsbtn[aria-pressed="true"]{background:var(--brand); color:#fff; border-color:var(--brand)}
+footer b{color:var(--ink)}
+footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
 
-
-
-footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; line-height:1.7}
 .toast{
-  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
-  background:#16202e; color:#fff; padding:14px 22px; border-radius:14px; font-size:.9em;
-  font-weight:700; opacity:0; pointer-events:none; transition:.25s; z-index:99; max-width:90vw;
+  position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(14px);
+  background:var(--ink); color:var(--card); padding:12px 20px; border-radius:3px;
+  font-size:.8em; font-weight:700; opacity:0; pointer-events:none; transition:.22s;
+  z-index:99; max-width:90vw;
 }
 .toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
+
 @media (max-width:520px){
-  .wrap{padding:10px 9px 50px}
-  .card{padding:15px; border-radius:16px}
-  header.top h1{font-size:1.45em}
+  .sheet{padding:0 16px}
+  header.top h1{font-size:1.42em}
+  .card{padding:24px 0}
+  .top10 li{grid-template-columns:24px 1fr auto; gap:10px}
 }
 </style>
 
 <div class="wrap">
+ <div class="sheet">
 
   <header class="top">
     <h1>스미싱 문자 판별기</h1>
-    <p>받은 문자를 붙여넣으면 위험도를 알려드립니다 · 문자 1,000건 학습</p>
+    <p>받은 문자를 그대로 붙여넣으면 얼마나 위험한지 알려드립니다.<br>
+      실제 문자 1,000건을 학습했고, 판별은 이 브라우저 안에서만 이루어집니다.</p>
   </header>
 
   <div class="fsbar">
@@ -218,14 +291,18 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
   <div class="card" id="result">
     <h2><span class="em">📊</span> 판별 결과</h2>
 
-    <div class="gauge">
-      <svg viewBox="0 0 200 118" role="img" aria-label="위험도 게이지">
-        <path d="M18 104 A82 82 0 0 1 182 104" fill="none" stroke="var(--line)" stroke-width="20" stroke-linecap="round"/>
-        <path id="arc" d="M18 104 A82 82 0 0 1 182 104" fill="none" stroke="var(--danger)" stroke-width="20"
-              stroke-linecap="round" stroke-dasharray="0 999" style="transition:stroke-dasharray .7s ease"/>
-      </svg>
-      <div class="num" id="pct">0%</div>
-      <div class="cap">위험도 (0% 안전 ~ 100% 위험)</div>
+    <div class="meter">
+      <div class="meter-head">
+        <span class="lab">위험도</span>
+        <span class="num" id="pct">0%</span>
+      </div>
+      <div class="meter-track" role="img" aria-label="위험도 눈금">
+        <div class="meter-fill" id="mfill"></div>
+        <i class="tick" style="left:40%"></i>
+        <i class="tick" style="left:70%"></i>
+        <div class="meter-pin" id="arc"></div>
+      </div>
+      <div class="meter-scale"><span>안전</span><span>주의</span><span>위험</span></div>
     </div>
 
     <div class="verdict" id="vbox">
@@ -236,10 +313,10 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
       </div>
     </div>
 
-    <h2 style="font-size:1.05em"><span class="em">🖍️</span> 위험 신호 단어 표시</h2>
+    <p class="sub-h">🖍️ 위험 신호 단어 표시</p>
     <div class="msgbox" id="hl"></div>
     <div class="chips" id="chips"></div>
-    <p class="hint">진한 빨강일수록 스미싱 문자에서 자주 나오는 단어입니다.</p>
+    <p class="hint">색이 진할수록 스미싱 문자에 자주 나오는 단어입니다. 옆의 숫자는 그 단어가 위험도를 얼마나 끌어올렸는지를 뜻합니다.</p>
 
     <div class="tip" id="tip"></div>
   </div>
@@ -264,18 +341,22 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
     <h2><span class="em">🗺️</span> 문자 분포 점지도</h2>
     <canvas id="mapc" height="440"></canvas>
     <div class="legend">
-      <span><b style="background:#d64545"></b>스미싱</span>
-      <span><b style="background:#2f7fbf"></b>정상</span>
-      <span><b style="background:#111;box-shadow:0 0 0 2px #fff"></b>내가 입력한 문자</span>
+      <span><b class="sw-s"></b>스미싱</span>
+      <span><b class="sw-n"></b>정상</span>
+      <span><b class="sw-me"></b>내가 입력한 문자</span>
     </div>
     <p class="hint">학습 문자 1,000건을 2차원에 찍은 지도입니다. <b>가로축</b>은 모델이 배운 스미싱 신호의 세기,
       <b>세로축</b>은 그 외 문자들이 가장 크게 갈리는 방향(주성분)입니다. 서로 가까운 점일수록 단어 구성이 비슷합니다.</p>
   </div>
 
+ </div>
+
   <footer>
-    입력한 문자는 <b>어디에도 저장되거나 전송되지 않습니다.</b> 판별은 전부 이 브라우저 안에서 끝납니다.<br>
-    이 앱은 통계 기반 참고 도구입니다. 결과가 100% 정확하지 않으므로 최종 판단은 직접 하세요.<br>
-    의심되면 <b>절대 링크를 누르지 말고</b> 경찰청 <b>112</b>, 인터넷진흥원 <b>118</b>, 금융감독원 <b>1332</b>로 문의하세요.
+    <hr>
+    입력한 문자는 어디에도 저장되거나 전송되지 않습니다. 판별은 전부 이 브라우저 안에서 끝나고,
+    창을 닫으면 남지 않습니다.<br>
+    통계로 짐작하는 도구라 결과가 늘 맞지는 않습니다. 마지막 판단은 직접 하세요.<br><br>
+    의심되면 <b>링크를 누르지 마시고</b> 경찰청 <b>112</b> · 인터넷진흥원 <b>118</b> · 금융감독원 <b>1332</b>로 문의하세요.
   </footer>
 </div>
 
@@ -2159,12 +2240,14 @@ function judge(){
 
   $("result").classList.add("on");
 
-  // 게이지
-  const L = 257.6;                                  // 반원 호 길이 (r=82)
-  $("arc").setAttribute("stroke-dasharray", (L * r.p).toFixed(1) + " 999");
-  $("arc").setAttribute("stroke", pct >= 70 ? "var(--danger)" : pct >= 40 ? "var(--warn)" : "var(--safe)");
+  // 위험도 눈금
+  const tone = pct >= 70 ? "var(--danger)" : pct >= 40 ? "var(--warn)" : "var(--safe)";
+  $("arc").style.left = pct + "%";
+  $("arc").style.background = tone;
+  $("mfill").style.width = pct + "%";
+  $("mfill").style.background = tone;
   $("pct").textContent = pct + "%";
-  $("pct").style.color = pct >= 70 ? "var(--danger)" : pct >= 40 ? "var(--warn)" : "var(--safe)";
+  $("pct").style.color = tone;
 
   // 판정
   const v = $("vbox");
@@ -2265,11 +2348,12 @@ function drawCloud(){
   const placed = [];
   const hit = r => placed.some(p => !(r.x + r.w < p.x || r.x > p.x + p.w || r.y + r.h < p.y || r.y > p.y + p.h));
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const danger = css("--danger") || "#d32d2d";
-  const sub = css("--sub") || "#5b6b80";
+  const danger = css("--danger") || "#b62d21";
+  const brand = css("--brand") || "#1e3a5c";
+  const sub = css("--sub") || "#5a6870";
 
   g.textBaseline = "top";
-  words.forEach(([w, s], i) => {
+  words.forEach(([w, s]) => {
     const t = (s - lo) / (hi - lo || 1);
     const size = Math.max(13, Math.round(13 + Math.pow(t, 1.5) * 52));
     g.font = `800 ${size}px "Malgun Gothic","Apple SD Gothic Neo",sans-serif`;
@@ -2284,8 +2368,8 @@ function drawCloud(){
     }
     if(!ok) return;
     placed.push({ x: x - 2, y: y - 2, w: tw + 4, h: th + 4 });
-    g.fillStyle = t > 0.6 ? danger : t > 0.28 ? (i % 2 ? "#b3431f" : "#7a4bbd") : sub;
-    g.globalAlpha = 0.55 + 0.45 * t;
+    g.fillStyle = t > 0.58 ? danger : t > 0.26 ? brand : sub;
+    g.globalAlpha = 0.5 + 0.5 * t;
     g.fillText(w, x, y);
   });
   g.globalAlpha = 1;
@@ -2379,6 +2463,8 @@ function drawMap(userText){
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
 
+  const cs = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const cSpam = cs("--danger") || "#b62d21", cHam = cs("--brand") || "#1e3a5c";
   const cl = (v, a, b) => Math.max(a, Math.min(b, v));
   const sx = v => cl(pad + (v - PCA.minx) / ((PCA.maxx - PCA.minx) || 1) * (W - 2 * pad), pad, W - pad);
   const sy = v => cl(H - pad - (v - PCA.miny) / ((PCA.maxy - PCA.miny) || 1) * (H - 2 * pad), pad, H - pad);
@@ -2393,7 +2479,7 @@ function drawMap(userText){
 
   g.globalAlpha = 0.6;
   for(const cls of ["정상", "스미싱"]){                    // 겹칠 때 스미싱이 위로 오도록
-    g.fillStyle = cls === "스미싱" ? "#d64545" : "#2f7fbf";
+    g.fillStyle = cls === "스미싱" ? cSpam : cHam;
     for(const p of PCA.pts){
       if(p.l !== cls) continue;
       g.beginPath();
@@ -2409,14 +2495,14 @@ function drawMap(userText){
     g.beginPath(); g.arc(x, y, 13, 0, 6.2832);
     g.fillStyle = "rgba(0,0,0,.10)"; g.fill();
     g.beginPath(); g.arc(x, y, 8.5, 0, 6.2832);
-    g.fillStyle = "#111"; g.fill();
-    g.lineWidth = 3.5; g.strokeStyle = "#fff"; g.stroke();
+    g.fillStyle = cs("--ink") || "#16202a"; g.fill();
+    g.lineWidth = 3.5; g.strokeStyle = cs("--card") || "#fff"; g.stroke();
     const right = x > W - 120;
     g.font = '800 15px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
     g.textAlign = right ? "right" : "left";
-    g.lineWidth = 4; g.strokeStyle = "#fff";                 // 밝은/어두운 배경 모두에서 읽히도록 흰 테두리
+    g.lineWidth = 4; g.strokeStyle = cs("--card") || "#fff";  // 배경색으로 테두리를 둘러 어느 테마에서도 읽히게
     g.strokeText("내 문자", x + (right ? -15 : 15), y + 5);
-    g.fillStyle = "#111";
+    g.fillStyle = cs("--ink") || "#16202a";
     g.fillText("내 문자", x + (right ? -15 : 15), y + 5);
   }
 }
