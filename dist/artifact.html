@@ -154,13 +154,6 @@ canvas{width:100%; height:auto; display:block; border-radius:14px; background:va
 .legend{display:flex; gap:16px; justify-content:center; margin-top:10px; font-size:.85em; color:var(--sub); flex-wrap:wrap}
 .legend b{display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; margin-right:5px}
 
-table.store{width:100%; border-collapse:collapse; font-size:.85em; margin-top:12px}
-table.store th,table.store td{border-bottom:1px solid var(--line); padding:9px 6px; text-align:left; vertical-align:top}
-table.store th{color:var(--sub); font-weight:700; white-space:nowrap}
-table.store td.m{word-break:break-all}
-.tag{border-radius:99px; padding:2px 9px; font-size:.85em; font-weight:800; white-space:nowrap}
-.tag.s{background:var(--danger-bg); color:var(--danger-ink)}
-.tag.n{background:var(--safe-bg); color:var(--safe)}
 
 .fsbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px}
 .fsbar span{font-size:.85em; color:var(--sub); font-weight:700}
@@ -170,16 +163,7 @@ table.store td.m{word-break:break-all}
 }
 .fsbtn[aria-pressed="true"]{background:var(--brand); color:#fff; border-color:var(--brand)}
 
-.stat{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px}
-.stat div{
-  flex:1 1 130px; background:var(--bg); border:2px solid var(--line);
-  border-radius:14px; padding:11px 13px;
-}
-.stat b{display:block; font-size:1.5em; font-weight:900; letter-spacing:-.02em}
-.stat span{font-size:.78em; color:var(--sub)}
 
-label.sw{display:flex; align-items:center; gap:11px; margin-top:14px; cursor:pointer; font-size:.92em}
-label.sw input{width:30px; height:30px; accent-color:var(--brand)}
 
 footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; line-height:1.7}
 .toast{
@@ -250,18 +234,14 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
     <p class="hint">진한 빨강일수록 스미싱 문자에서 자주 나오는 단어입니다.</p>
 
     <div class="tip" id="tip"></div>
-
-    <div class="row">
-      <button class="btn dgr sm" id="rep">🚨 스팸으로 신고 · 보관</button>
-      <button class="btn ok sm" id="repok">✅ 정상 문자로 등록</button>
-    </div>
   </div>
 
   <!-- TOP 10 -->
   <div class="card">
     <h2><span class="em">🚨</span> 사기 신호 단어 TOP 10</h2>
     <ol class="top10" id="top10"></ol>
-    <p class="hint">학습 데이터에서 스미싱 문자에 유난히 많이 나온 단어 순위입니다.</p>
+    <p class="hint">학습 데이터에서 스미싱 문자에 유난히 많이 나온 단어 순위입니다.
+      학습 문자 <b id="s3">-</b>건 · 5-겹 교차검증 정확도 <b id="s4">-</b>.</p>
   </div>
 
   <!-- 워드클라우드 -->
@@ -284,42 +264,8 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
       <b>세로축</b>은 그 외 문자들이 가장 크게 갈리는 방향(주성분)입니다. 서로 가까운 점일수록 단어 구성이 비슷합니다.</p>
   </div>
 
-  <!-- 보관함 -->
-  <div class="card">
-    <h2><span class="em">🗄️</span> 신고 문자 보관함</h2>
-    <div class="stat">
-      <div><b id="s1">0</b><span>보관된 문자</span></div>
-      <div><b id="s2">0</b><span>스미싱으로 보관</span></div>
-      <div><b id="s3">0</b><span>학습 문자 수</span></div>
-      <div><b id="s4">-</b><span>학습 정확도</span></div>
-    </div>
-    <p class="hint" style="margin-top:8px">학습 정확도는 학습 데이터를 5조각으로 나눠 서로 맞혀보는 <b>5-겹 교차검증</b> 결과입니다.</p>
-    <label class="sw"><input type="checkbox" id="auto" checked> 스미싱으로 판정된 문자를 자동으로 보관하기</label>
-    <label class="sw" id="shareRow" hidden><input type="checkbox" id="share" checked> 신고한 문자를 <b>공유 수집함</b>에도 보내기</label>
-    <p class="hint" id="shareState" hidden></p>
-    <div class="row">
-      <button class="btn sec sm" id="retrain">🔁 보관 문자까지 학습</button>
-      <button class="btn sec sm" id="exp">⬇️ CSV 내려받기</button>
-      <button class="btn sec sm" id="del">🗑️ 전부 지우기</button>
-    </div>
-    <table class="store"><thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
-      <tbody id="stbody"></tbody></table>
-    <p class="hint">보관된 문자는 <b>이 기기의 브라우저에</b> 저장되며(localStorage) [전부 지우기]로 언제든 삭제할 수 있습니다.
-      판별 자체는 인터넷 연결 없이 브라우저 안에서 끝나고, 서버로 나가는 것은 <b>공유 수집함에 보낼 때뿐</b>입니다.</p>
-  </div>
-
-  <!-- 데이터 -->
-  <div class="card">
-    <h2><span class="em">📁</span> 내 데이터로 다시 학습</h2>
-    <p class="hint" style="margin-top:0">
-      <b>문자내용, 분류</b> 두 열을 가진 CSV 파일을 고르면 그 데이터로 즉시 다시 학습합니다.
-      (분류 값은 <b>스미싱</b> / <b>정상</b>)
-    </p>
-    <input type="file" id="csv" accept=".csv,text/csv" style="margin-top:10px; font:inherit; width:100%">
-    <div class="row"><button class="btn sec sm" id="reset">기본 데이터로 되돌리기</button></div>
-  </div>
-
   <footer>
+    입력한 문자는 <b>어디에도 저장되거나 전송되지 않습니다.</b> 판별은 전부 이 브라우저 안에서 끝납니다.<br>
     이 앱은 통계 기반 참고 도구입니다. 결과가 100% 정확하지 않으므로 최종 판단은 직접 하세요.<br>
     의심되면 <b>절대 링크를 누르지 말고</b> 경찰청 <b>112</b>, 인터넷진흥원 <b>118</b>, 금융감독원 <b>1332</b>로 문의하세요.
   </footer>
@@ -333,11 +279,6 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
 /* ==========================================================================
    0. 학습 데이터 (CSV 내장)
    ========================================================================== */
-/* 공유 수집함 주소 (구글 Apps Script 웹앱).
-   data/collect_url.txt 에 주소를 적고 python3 data/build.py 를 돌리면 여기에 채워집니다.
-   비어 있으면 문자는 방문자 본인 브라우저에만 보관됩니다. */
-const COLLECT_URL = "";
-
 const RAW_CSV = `문자내용,분류
 "[Web발신]
 해외 직구 35,000원 결제 승인 안내. 취소 문의 1588-0747",스미싱
@@ -2265,8 +2206,6 @@ function judge(){
          <li>아는 사람이라도 <b>송금 요청</b>은 꼭 전화로 확인하세요.</li>
        </ul>`;
 
-  if(pct >= 70 && $("auto").checked) store(text, "스미싱", pct, true);
-
   drawMap(text);
   $("result").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -2475,87 +2414,7 @@ function drawMap(userText){
 }
 
 /* ==========================================================================
-   5. 보관함 (localStorage)
-   ========================================================================== */
-const KEY = "smishing_reports_v1";
-const load = () => { try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } };
-const save = a => { try{ localStorage.setItem(KEY, JSON.stringify(a.slice(-500))); }catch(e){} };
-
-function store(text, label, pct, silent){
-  const a = load();
-  if(a.some(r => r.text === text && r.label === label)){ if(!silent) toast("이미 보관된 문자입니다."); return; }
-  a.push({ text, label, pct: pct ?? null, ts: Date.now() });
-  save(a); renderStore();
-  sendShared({ text, label, pct: pct ?? null, ts: Date.now() });
-  toast(label === "스미싱" ? "🚨 스팸 문자로 보관했습니다." : "✅ 정상 문자로 보관했습니다.");
-}
-
-/* ── 공유 수집함 (구글 Apps Script 웹앱으로 전송) ──────────────────
-   보내기 실패하면 대기열에 남겨 두었다가 다음 방문 때 다시 시도합니다. */
-const SHARE_OK = /^https:\/\/script\.google(usercontent)?\.com\//.test(COLLECT_URL);
-const QKEY = "smishing_outbox_v1", SKEY = "smishing_share_off", CKEY = "smishing_sent_n";
-const qLoad = () => { try{ return JSON.parse(localStorage.getItem(QKEY)) || []; }catch(e){ return []; } };
-const qSave = a => { try{ localStorage.setItem(QKEY, JSON.stringify(a.slice(-100))); }catch(e){} };
-const shareOn = () => { try{ return localStorage.getItem(SKEY) !== "1"; }catch(e){ return true; } };
-
-function sendShared(rec){
-  if(!SHARE_OK || !shareOn()) return;
-  const q = qLoad(); q.push(rec); qSave(q);
-  flushShared();
-}
-
-let flushing = false;
-function flushShared(){
-  if(!SHARE_OK || !shareOn() || flushing) return;
-  const q = qLoad();
-  if(!q.length){ renderShare(); return; }
-  flushing = true;
-  const rec = q[0];
-  fetch(COLLECT_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },   // 사전 요청(preflight) 없이 보내기
-    body: JSON.stringify({ text: rec.text, label: rec.label, pct: rec.pct, ts: rec.ts })
-  }).then(() => {
-    const cur = qLoad(); cur.shift(); qSave(cur);
-    try{ localStorage.setItem(CKEY, String((+localStorage.getItem(CKEY) || 0) + 1)); }catch(e){}
-    flushing = false; renderShare();
-    if(cur.length) setTimeout(flushShared, 400);
-  }).catch(() => {
-    flushing = false; renderShare();                            // 대기열에 남겨 두고 다음 기회에
-  });
-}
-
-function renderShare(){
-  const row = $("shareRow"), st = $("shareState");
-  if(!SHARE_OK){
-    row.hidden = true; st.hidden = false;
-    st.innerHTML = "공유 수집함이 설정되지 않아, 문자는 <b>이 브라우저에만</b> 보관됩니다. " +
-                   "운영자는 <code>data/collect_url.txt</code> 에 구글 Apps Script 주소를 넣고 다시 빌드하세요.";
-    return;
-  }
-  row.hidden = false; st.hidden = false;
-  $("share").checked = shareOn();
-  const sent = (+localStorage.getItem(CKEY) || 0), wait = qLoad().length;
-  st.innerHTML = shareOn()
-    ? `보낸 신고 <b>${sent}건</b>${wait ? ` · 전송 대기 ${wait}건` : ""} — 신고한 문자는 운영자의 구글 시트에 쌓여 스미싱 유형 분석에 쓰입니다. 보내고 싶지 않으면 위 체크를 해제하세요.`
-    : "공유 수집함으로 보내지 않습니다. 문자는 이 브라우저에만 보관됩니다.";
-}
-
-function renderStore(){
-  const a = load().slice().reverse();
-  $("s1").textContent = a.length;
-  $("s2").textContent = a.filter(r => r.label === "스미싱").length;
-  $("stbody").innerHTML = a.length
-    ? a.slice(0, 30).map(r => `<tr>
-        <td style="white-space:nowrap">${new Date(r.ts).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
-        <td><span class="tag ${r.label === "스미싱" ? "s" : "n"}">${r.label}</span></td>
-        <td class="m">${esc(r.text.length > 70 ? r.text.slice(0, 70) + "…" : r.text)}</td></tr>`).join("")
-    : `<tr><td colspan="3" style="color:var(--sub);padding:16px 6px">아직 보관된 문자가 없습니다.</td></tr>`;
-}
-
-/* ==========================================================================
-   6. 전체 초기화
+   5. 전체 초기화
    ========================================================================== */
 function rebuild(docs, note){
   DOCS = docs;
@@ -2564,7 +2423,6 @@ function rebuild(docs, note){
   $("s4").textContent = "계산 중…";
   renderTop10(); drawCloud();
   buildPCA(); drawMap(LAST ? LAST.text : "");
-  renderStore(); renderShare();
   setTimeout(() => {
     const acc = crossVal(DOCS);
     $("s4").textContent = (acc * 100).toFixed(1) + "%";
@@ -2575,7 +2433,7 @@ function rebuild(docs, note){
 const BASE = rowsToDocs(parseCSV(RAW_CSV));
 
 /* ==========================================================================
-   7. 이벤트
+   6. 이벤트
    ========================================================================== */
 $("go").addEventListener("click", judge);
 $("inp").addEventListener("keydown", e => { if(e.ctrlKey && e.key === "Enter") judge(); });
@@ -2588,51 +2446,6 @@ $("ex2").addEventListener("click", () => {
   $("inp").value = "[CJ대한통운] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 010-2847-1193";
   judge();
 });
-$("rep").addEventListener("click",   () => LAST ? store(LAST.text, "스미싱", LAST.pct) : toast("먼저 문자를 판별해 주세요."));
-$("repok").addEventListener("click", () => LAST ? store(LAST.text, "정상",   LAST.pct) : toast("먼저 문자를 판별해 주세요."));
-
-$("retrain").addEventListener("click", () => {
-  const extra = load().map(r => ({ text: r.text, label: r.label }));
-  if(!extra.length){ toast("보관된 문자가 없습니다."); return; }
-  rebuild(BASE.concat(extra), `보관 문자 ${extra.length}건을 더해 다시 학습했습니다.`);
-});
-
-$("exp").addEventListener("click", () => {
-  const a = load();
-  if(!a.length){ toast("내려받을 문자가 없습니다."); return; }
-  const q = s => '"' + String(s).replace(/"/g, '""') + '"';
-  const csv = "﻿문자내용,분류,위험도,보관시각\n" +
-    a.map(r => [q(r.text), r.label, r.pct ?? "", new Date(r.ts).toISOString()].join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const a2 = document.createElement("a");
-  a2.href = url; a2.download = "신고문자_보관함.csv"; a2.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-});
-
-$("del").addEventListener("click", () => {
-  if(!confirm("보관된 문자를 모두 지울까요? 되돌릴 수 없습니다.")) return;
-  localStorage.removeItem(KEY); renderStore(); toast("보관함을 비웠습니다.");
-});
-
-$("share").addEventListener("change", e => {
-  try{ localStorage.setItem(SKEY, e.target.checked ? "0" : "1"); }catch(err){}
-  renderShare();
-  if(e.target.checked) flushShared();
-  toast(e.target.checked ? "공유 수집함으로 보냅니다." : "공유 수집함으로 보내지 않습니다.");
-});
-
-$("csv").addEventListener("change", e => {
-  const f = e.target.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = () => {
-    const docs = rowsToDocs(parseCSV(String(rd.result)));
-    if(docs.length < 10){ toast("문자내용/분류 열을 찾지 못했습니다."); return; }
-    rebuild(docs, `내 데이터 ${docs.length.toLocaleString("ko-KR")}건으로 다시 학습했습니다.`);
-  };
-  rd.readAsText(f, "utf-8");
-});
-
-$("reset").addEventListener("click", () => { $("csv").value = ""; rebuild(BASE, "기본 데이터로 되돌렸습니다."); });
 
 document.querySelectorAll(".fsbtn").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".fsbtn").forEach(x => x.setAttribute("aria-pressed", "false"));
@@ -2649,7 +2462,7 @@ window.addEventListener("resize", () => {
 });
 
 /* ==========================================================================
-   8. PWA (매니페스트를 코드 안에서 만들어 붙임 → 파일 하나로 동작)
+   7. PWA (매니페스트를 코드 안에서 만들어 붙임 → 파일 하나로 동작)
    ========================================================================== */
 (function pwa(){
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -2711,7 +2524,7 @@ window.addEventListener("resize", () => {
 })();
 
 /* ==========================================================================
-   9. 시작
+   8. 시작
    ========================================================================== */
 try{
   const fs = localStorage.getItem("smishing_fs");
@@ -2722,5 +2535,4 @@ try{
 }catch(e){}
 
 rebuild(BASE);
-flushShared();          // 지난 방문에서 못 보낸 신고가 있으면 마저 보낸다
 </script>

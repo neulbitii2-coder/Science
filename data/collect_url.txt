@@ -1,6 +1,0 @@
-# 공유 수집함 주소를 아래 빈 줄에 한 줄로 붙여넣으세요.
-#   1. docs/apps-script/Code.gs 설명대로 구글 Apps Script 웹앱을 배포하고
-#   2. 나온 https://script.google.com/macros/s/.../exec 주소를 여기에 넣은 뒤
-#   3. python3 data/build.py 를 실행하고 커밋·푸시하면 반영됩니다.
-# 비워 두면 신고 문자는 방문자 본인 브라우저에만 보관됩니다.
-
