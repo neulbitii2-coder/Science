@@ -17,6 +17,7 @@ ROOT = os.path.dirname(HERE)
 
 CORE = os.path.join(ROOT, "app", "core.html")
 CSV = os.path.join(HERE, "messages_1000.csv")
+COLLECT = os.path.join(HERE, "collect_url.txt")
 OUT_HTML = os.path.join(ROOT, "index.html")
 OUT_ART = os.path.join(ROOT, "dist", "artifact.html")
 
@@ -48,6 +49,16 @@ def main():
     )
     if "/*DATA_START*/" in injected:
         raise SystemExit("데이터 주입 실패: 마커를 찾지 못했습니다.")
+
+    # 공유 수집함 주소 (없으면 빈 값 → 방문자 브라우저에만 보관)
+    url = ""
+    if os.path.exists(COLLECT):
+        lines = [l.strip() for l in open(COLLECT, encoding="utf-8").read().splitlines()]
+        url = next((l for l in lines if l and not l.startswith("#")), "")
+    if url and not url.startswith("https://script.google.com/"):
+        raise SystemExit(f"collect_url.txt 가 구글 Apps Script 주소가 아닙니다: {url}")
+    injected = injected.replace("__COLLECT_URL__", url.replace('"', ""))
+    print("공유 수집함  :", url or "(설정 안 함 — 방문자 브라우저에만 보관)")
 
     # <title> / <meta description> 은 단일 파일 버전에서 <head> 로 옮긴다
     head_extra = ""

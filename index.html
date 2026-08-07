@@ -303,6 +303,8 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
     </div>
     <p class="hint" style="margin-top:8px">학습 정확도는 학습 데이터를 5조각으로 나눠 서로 맞혀보는 <b>5-겹 교차검증</b> 결과입니다.</p>
     <label class="sw"><input type="checkbox" id="auto" checked> 스미싱으로 판정된 문자를 자동으로 보관하기</label>
+    <label class="sw" id="shareRow" hidden><input type="checkbox" id="share" checked> 신고한 문자를 <b>공유 수집함</b>에도 보내기</label>
+    <p class="hint" id="shareState" hidden></p>
     <div class="row">
       <button class="btn sec sm" id="retrain">🔁 보관 문자까지 학습</button>
       <button class="btn sec sm" id="exp">⬇️ CSV 내려받기</button>
@@ -310,7 +312,8 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
     </div>
     <table class="store"><thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
       <tbody id="stbody"></tbody></table>
-    <p class="hint">보관된 문자는 <b>이 기기의 브라우저에만</b> 저장됩니다(localStorage). 다른 사람이나 서버로 전송되지 않으며, [전부 지우기]로 언제든 삭제할 수 있습니다.</p>
+    <p class="hint">보관된 문자는 <b>이 기기의 브라우저에</b> 저장되며(localStorage) [전부 지우기]로 언제든 삭제할 수 있습니다.
+      판별 자체는 인터넷 연결 없이 브라우저 안에서 끝나고, 서버로 나가는 것은 <b>공유 수집함에 보낼 때뿐</b>입니다.</p>
   </div>
 
   <!-- 데이터 -->
@@ -338,6 +341,11 @@ footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; li
 /* ==========================================================================
    0. 학습 데이터 (CSV 내장)
    ========================================================================== */
+/* 공유 수집함 주소 (구글 Apps Script 웹앱).
+   data/collect_url.txt 에 주소를 적고 python3 data/build.py 를 돌리면 여기에 채워집니다.
+   비어 있으면 문자는 방문자 본인 브라우저에만 보관됩니다. */
+const COLLECT_URL = "";
+
 const RAW_CSV = `문자내용,분류
 "[Web발신]
 해외 직구 35,000원 결제 승인 안내. 취소 문의 1588-0747",스미싱
@@ -2486,7 +2494,60 @@ function store(text, label, pct, silent){
   if(a.some(r => r.text === text && r.label === label)){ if(!silent) toast("이미 보관된 문자입니다."); return; }
   a.push({ text, label, pct: pct ?? null, ts: Date.now() });
   save(a); renderStore();
+  sendShared({ text, label, pct: pct ?? null, ts: Date.now() });
   toast(label === "스미싱" ? "🚨 스팸 문자로 보관했습니다." : "✅ 정상 문자로 보관했습니다.");
+}
+
+/* ── 공유 수집함 (구글 Apps Script 웹앱으로 전송) ──────────────────
+   보내기 실패하면 대기열에 남겨 두었다가 다음 방문 때 다시 시도합니다. */
+const SHARE_OK = /^https:\/\/script\.google(usercontent)?\.com\//.test(COLLECT_URL);
+const QKEY = "smishing_outbox_v1", SKEY = "smishing_share_off", CKEY = "smishing_sent_n";
+const qLoad = () => { try{ return JSON.parse(localStorage.getItem(QKEY)) || []; }catch(e){ return []; } };
+const qSave = a => { try{ localStorage.setItem(QKEY, JSON.stringify(a.slice(-100))); }catch(e){} };
+const shareOn = () => { try{ return localStorage.getItem(SKEY) !== "1"; }catch(e){ return true; } };
+
+function sendShared(rec){
+  if(!SHARE_OK || !shareOn()) return;
+  const q = qLoad(); q.push(rec); qSave(q);
+  flushShared();
+}
+
+let flushing = false;
+function flushShared(){
+  if(!SHARE_OK || !shareOn() || flushing) return;
+  const q = qLoad();
+  if(!q.length){ renderShare(); return; }
+  flushing = true;
+  const rec = q[0];
+  fetch(COLLECT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },   // 사전 요청(preflight) 없이 보내기
+    body: JSON.stringify({ text: rec.text, label: rec.label, pct: rec.pct, ts: rec.ts })
+  }).then(() => {
+    const cur = qLoad(); cur.shift(); qSave(cur);
+    try{ localStorage.setItem(CKEY, String((+localStorage.getItem(CKEY) || 0) + 1)); }catch(e){}
+    flushing = false; renderShare();
+    if(cur.length) setTimeout(flushShared, 400);
+  }).catch(() => {
+    flushing = false; renderShare();                            // 대기열에 남겨 두고 다음 기회에
+  });
+}
+
+function renderShare(){
+  const row = $("shareRow"), st = $("shareState");
+  if(!SHARE_OK){
+    row.hidden = true; st.hidden = false;
+    st.innerHTML = "공유 수집함이 설정되지 않아, 문자는 <b>이 브라우저에만</b> 보관됩니다. " +
+                   "운영자는 <code>data/collect_url.txt</code> 에 구글 Apps Script 주소를 넣고 다시 빌드하세요.";
+    return;
+  }
+  row.hidden = false; st.hidden = false;
+  $("share").checked = shareOn();
+  const sent = (+localStorage.getItem(CKEY) || 0), wait = qLoad().length;
+  st.innerHTML = shareOn()
+    ? `보낸 신고 <b>${sent}건</b>${wait ? ` · 전송 대기 ${wait}건` : ""} — 신고한 문자는 운영자의 구글 시트에 쌓여 스미싱 유형 분석에 쓰입니다. 보내고 싶지 않으면 위 체크를 해제하세요.`
+    : "공유 수집함으로 보내지 않습니다. 문자는 이 브라우저에만 보관됩니다.";
 }
 
 function renderStore(){
@@ -2511,7 +2572,7 @@ function rebuild(docs, note){
   $("s4").textContent = "계산 중…";
   renderTop10(); drawCloud();
   buildPCA(); drawMap(LAST ? LAST.text : "");
-  renderStore();
+  renderStore(); renderShare();
   setTimeout(() => {
     const acc = crossVal(DOCS);
     $("s4").textContent = (acc * 100).toFixed(1) + "%";
@@ -2559,6 +2620,13 @@ $("exp").addEventListener("click", () => {
 $("del").addEventListener("click", () => {
   if(!confirm("보관된 문자를 모두 지울까요? 되돌릴 수 없습니다.")) return;
   localStorage.removeItem(KEY); renderStore(); toast("보관함을 비웠습니다.");
+});
+
+$("share").addEventListener("change", e => {
+  try{ localStorage.setItem(SKEY, e.target.checked ? "0" : "1"); }catch(err){}
+  renderShare();
+  if(e.target.checked) flushShared();
+  toast(e.target.checked ? "공유 수집함으로 보냅니다." : "공유 수집함으로 보내지 않습니다.");
 });
 
 $("csv").addEventListener("change", e => {
@@ -2662,6 +2730,7 @@ try{
 }catch(e){}
 
 rebuild(BASE);
+flushShared();          // 지난 방문에서 못 보낸 신고가 있으면 마저 보낸다
 </script>
 </body>
 </html>
