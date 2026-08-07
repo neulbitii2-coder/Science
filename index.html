@@ -240,11 +240,11 @@ mark.h2{background:var(--hl2); color:inherit; border-radius:2px; padding:0 2px;
   font-size:.8em; font-weight:700; color:var(--sub); text-align:right;
   font-feature-settings:"tnum";
 }
-.top10 li:nth-child(-n+3) .rank{color:var(--danger)}
+.top10 li:nth-child(-n+2) .rank{color:var(--danger)}
 .wname{font-weight:700; word-break:break-all; letter-spacing:-.01em}
 .bar{height:3px; background:var(--line-2); overflow:hidden; margin-top:7px}
 .bar > i{display:block; height:100%; background:var(--danger)}
-.top10 li:nth-child(n+4) .bar > i{background:var(--sub)}
+.top10 li:nth-child(n+3) .bar > i{background:var(--sub)}
 .wnum{color:var(--sub); font-size:.7em; white-space:nowrap; text-align:right; line-height:1.5}
 
 canvas{width:100%; height:auto; display:block; border:1px solid var(--line);
@@ -415,7 +415,7 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
    <div class="col col-b">
     <!-- TOP 10 -->
     <div class="card">
-      <h2><span class="em">🚨</span> 사기 신호 단어 TOP 10</h2>
+      <h2><span class="em">🚨</span> 사기 신호 단어 TOP 5</h2>
       <ol class="top10" id="top10"></ol>
       <p class="hint">학습 데이터에서 스미싱 문자에 유난히 많이 나온 단어 순위입니다.
         학습 문자 <b id="s3">-</b>건 · 5-겹 교차검증 정확도 <b id="s4">-</b>.</p>
@@ -448,7 +448,7 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
     창을 닫으면 남지 않습니다.<br>
     통계로 짐작하는 도구라 결과가 늘 맞지는 않습니다. 마지막 판단은 직접 하세요.<br><br>
     의심되면 <b>링크를 누르지 마시고</b> 경찰청 <b>112</b> · 인터넷진흥원 <b>118</b> · 금융감독원 <b>1332</b>로 문의하세요.<br><br>
-    <span class="build">화면 갱신 2026-08-07 02:42 UTC</span>
+    <span class="build">화면 갱신 2026-08-07 02:46 UTC</span>
   </footer>
 </div>
 
@@ -2401,7 +2401,8 @@ function judge(){
   $("result").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-/* ── TOP 10 ── */
+/* ── 사기 신호 단어 순위 ── */
+const TOP_N = 5;
 function renderTop10(){
   const arr = [];
   for(const [w, c] of MODEL.cnt["스미싱"]){
@@ -2412,7 +2413,7 @@ function renderTop10(){
     arr.push([w, s, c, MODEL.cnt["정상"].get(w) || 0]);
   }
   arr.sort((a, b) => b[1] - a[1]);
-  const top = arr.slice(0, 10), max = top.length ? top[0][1] : 1;
+  const top = arr.slice(0, TOP_N), max = top.length ? top[0][1] : 1;
   $("top10").innerHTML = top.map(([w, s, cs, cn], i) => `
     <li>
       <span class="rank">${i + 1}</span>
@@ -2426,7 +2427,7 @@ function renderTop10(){
 }
 
 /* 그림 높이는 칸 너비를 따라간다 — 두 칸으로 나뉘면 자연히 낮아진다 */
-const canvasH = W => Math.round(Math.max(320, Math.min(440, W * 0.70)));
+const canvasH = W => Math.round(Math.max(320, Math.min(500, W * 0.86)));
 
 /* ── 워드클라우드 ── */
 function drawCloud(){
