@@ -365,6 +365,31 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
         <button class="btn sec sm" id="repok">정상 문자로 보관</button>
       </div>
     </div>
+    <!-- 보관함 -->
+    <div class="card">
+      <h2><span class="em">🗄️</span> 신고 문자 보관함</h2>
+
+      <p class="stat-inline">
+        보관 <b id="s1">0</b>건 · 그중 스미싱 <b id="s2">0</b>건
+      </p>
+
+      <label class="sw"><input type="checkbox" id="auto" checked>
+        스미싱으로 판정된 문자를 자동으로 보관하기</label>
+      <label class="sw" id="shareRow" hidden><input type="checkbox" id="share" checked>
+        신고한 문자를 공유 수집함에도 보내기</label>
+      <p class="hint" id="shareState" hidden></p>
+
+      <div class="row">
+        <button class="btn sec sm" id="exp">CSV 내려받기</button>
+        <button class="btn sec sm" id="del">전부 지우기</button>
+      </div>
+
+      <table class="store">
+        <thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
+        <tbody id="stbody"></tbody>
+      </table>
+      <p class="hint">보관한 문자는 <b>이 기기의 브라우저에</b> 남습니다(최대 500건). [전부 지우기]로 언제든 삭제됩니다.</p>
+    </div>
    </div>
 
    <div class="col col-b">
@@ -393,31 +418,6 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
       <p class="hint">학습 문자 1,000건을 2차원에 찍은 지도입니다. <b>가로축</b>은 모델이 배운 스미싱 신호의 세기,
         <b>세로축</b>은 그 외 문자들이 가장 크게 갈리는 방향(주성분)입니다. 서로 가까운 점일수록 단어 구성이 비슷합니다.</p>
     </div>
-    <!-- 보관함 -->
-    <div class="card">
-      <h2><span class="em">🗄️</span> 신고 문자 보관함</h2>
-
-      <p class="stat-inline">
-        보관 <b id="s1">0</b>건 · 그중 스미싱 <b id="s2">0</b>건
-      </p>
-
-      <label class="sw"><input type="checkbox" id="auto" checked>
-        스미싱으로 판정된 문자를 자동으로 보관하기</label>
-      <label class="sw" id="shareRow" hidden><input type="checkbox" id="share" checked>
-        신고한 문자를 공유 수집함에도 보내기</label>
-      <p class="hint" id="shareState" hidden></p>
-
-      <div class="row">
-        <button class="btn sec sm" id="exp">CSV 내려받기</button>
-        <button class="btn sec sm" id="del">전부 지우기</button>
-      </div>
-
-      <table class="store">
-        <thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
-        <tbody id="stbody"></tbody>
-      </table>
-      <p class="hint">보관한 문자는 <b>이 기기의 브라우저에</b> 남습니다(최대 500건). [전부 지우기]로 언제든 삭제됩니다.</p>
-    </div>
    </div>
   </div>
  </div>
@@ -428,7 +428,7 @@ footer hr{border:0; border-top:1px solid var(--line); margin:0 0 16px}
     창을 닫으면 남지 않습니다.<br>
     통계로 짐작하는 도구라 결과가 늘 맞지는 않습니다. 마지막 판단은 직접 하세요.<br><br>
     의심되면 <b>링크를 누르지 마시고</b> 경찰청 <b>112</b> · 인터넷진흥원 <b>118</b> · 금융감독원 <b>1332</b>로 문의하세요.<br><br>
-    <span class="build">화면 갱신 2026-08-07 02:31 UTC</span>
+    <span class="build">화면 갱신 2026-08-07 02:35 UTC</span>
   </footer>
 </div>
 
