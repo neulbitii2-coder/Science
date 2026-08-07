@@ -1,0 +1,2651 @@
+<title>스미싱 문자 판별기</title>
+<meta name="description" content="한국어 문자메시지를 붙여넣으면 나이브 베이즈로 스미싱 위험도를 판별합니다.">
+<style>
+:root{
+  --fs: 20px;
+  --bg:#f4f6fa; --card:#ffffff; --ink:#16202e; --sub:#5b6b80; --line:#dde4ee;
+  --danger:#d32d2d; --danger-bg:#fdeaea; --danger-ink:#8f1c1c;
+  --warn:#e08600; --warn-bg:#fff4e0;
+  --safe:#1e7a45; --safe-bg:#e6f5ec;
+  --brand:#1b4fa8; --brand-ink:#0f3170;
+  --hl1:#ffd9d9; --hl2:#ff9a9a;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#11151c; --card:#1a212b; --ink:#e9eef6; --sub:#9fb0c6; --line:#2c3746;
+    --danger:#ff6b6b; --danger-bg:#3a1c1c; --danger-ink:#ffb3b3;
+    --warn:#ffb545; --warn-bg:#3a2c12;
+    --safe:#5fd894; --safe-bg:#14301f;
+    --brand:#7ab0ff; --brand-ink:#bcd7ff;
+    --hl1:#5a2020; --hl2:#8f2a2a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151c; --card:#1a212b; --ink:#e9eef6; --sub:#9fb0c6; --line:#2c3746;
+  --danger:#ff6b6b; --danger-bg:#3a1c1c; --danger-ink:#ffb3b3;
+  --warn:#ffb545; --warn-bg:#3a2c12;
+  --safe:#5fd894; --safe-bg:#14301f;
+  --brand:#7ab0ff; --brand-ink:#bcd7ff;
+  --hl1:#5a2020; --hl2:#8f2a2a;
+}
+:root[data-theme="light"]{
+  --bg:#f4f6fa; --card:#ffffff; --ink:#16202e; --sub:#5b6b80; --line:#dde4ee;
+  --danger:#d32d2d; --danger-bg:#fdeaea; --danger-ink:#8f1c1c;
+  --warn:#e08600; --warn-bg:#fff4e0;
+  --safe:#1e7a45; --safe-bg:#e6f5ec;
+  --brand:#1b4fa8; --brand-ink:#0f3170;
+  --hl1:#ffd9d9; --hl2:#ff9a9a;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  font-size:var(--fs); line-height:1.65; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:820px; margin:0 auto; padding:16px 14px 64px}
+
+header.top{
+  background:linear-gradient(135deg,#1b4fa8,#2b6fd6);
+  color:#fff; border-radius:20px; padding:22px 20px; margin-bottom:16px;
+}
+header.top h1{margin:0 0 6px; font-size:1.75em; letter-spacing:-.02em}
+header.top p{margin:0; font-size:.95em; opacity:.92}
+
+.card{
+  background:var(--card); border:2px solid var(--line); border-radius:20px;
+  padding:20px; margin-bottom:16px;
+}
+.card h2{
+  margin:0 0 14px; font-size:1.25em; display:flex; align-items:center; gap:9px;
+}
+.card h2 .em{font-size:1.15em}
+.hint{color:var(--sub); font-size:.85em; margin:8px 0 0; line-height:1.55}
+
+textarea{
+  width:100%; min-height:190px; padding:16px; border-radius:16px;
+  border:3px solid var(--line); background:var(--bg); color:var(--ink);
+  font:inherit; font-size:1.05em; line-height:1.6; resize:vertical;
+}
+textarea:focus{outline:none; border-color:var(--brand)}
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:64px; padding:0 22px; border-radius:16px; border:3px solid transparent;
+  font:inherit; font-size:1.1em; font-weight:800; cursor:pointer; width:100%;
+  background:var(--brand); color:#fff; transition:filter .15s, transform .05s;
+}
+.btn:active{transform:translateY(1px)}
+.btn:hover{filter:brightness(1.08)}
+.btn.big{min-height:82px; font-size:1.4em; margin-top:14px}
+.btn.sec{background:var(--card); color:var(--ink); border-color:var(--line)}
+.btn.sm{min-height:52px; font-size:.92em; padding:0 14px}
+.btn.dgr{background:var(--danger); color:#fff}
+.btn.ok{background:var(--safe); color:#fff}
+.row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+.row > .btn{width:auto; flex:1 1 150px}
+
+/* ── 결과 ───────────────────────────── */
+#result{display:none}
+#result.on{display:block}
+.verdict{
+  display:flex; align-items:center; gap:14px; padding:18px; border-radius:16px;
+  border:3px solid; margin-bottom:16px;
+}
+.verdict .ico{font-size:2.6em; line-height:1}
+.verdict .t1{font-size:1.5em; font-weight:900; letter-spacing:-.02em}
+.verdict .t2{font-size:.88em; opacity:.9}
+.v-danger{background:var(--danger-bg); border-color:var(--danger); color:var(--danger-ink)}
+.v-warn{background:var(--warn-bg); border-color:var(--warn)}
+.v-safe{background:var(--safe-bg); border-color:var(--safe)}
+
+.gauge{text-align:center; margin:4px 0 18px}
+.gauge svg{width:100%; max-width:340px; height:auto}
+.gauge .num{font-size:2.9em; font-weight:900; letter-spacing:-.03em}
+.gauge .cap{color:var(--sub); font-size:.85em; margin-top:-6px}
+
+.msgbox{
+  background:var(--bg); border:2px solid var(--line); border-radius:14px;
+  padding:16px; white-space:pre-wrap; word-break:break-all; font-size:1.02em;
+}
+mark.h1{background:var(--hl1); color:inherit; border-radius:5px; padding:1px 3px}
+mark.h2{background:var(--hl2); color:inherit; border-radius:5px; padding:1px 3px; font-weight:800;
+        box-shadow:inset 0 -3px 0 var(--danger)}
+
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.chip{
+  background:var(--danger-bg); color:var(--danger-ink); border:2px solid var(--danger);
+  border-radius:999px; padding:5px 13px; font-size:.85em; font-weight:800;
+}
+.chip.safe{background:var(--safe-bg); color:var(--safe); border-color:var(--safe)}
+
+.tip{
+  margin-top:16px; background:var(--warn-bg); border-left:8px solid var(--warn);
+  border-radius:12px; padding:14px 16px; font-size:.92em;
+}
+.tip > b{display:block; margin-bottom:6px; font-size:1.05em}
+.tip ul{margin:0; padding-left:1.2em}
+.tip li{margin:4px 0}
+
+/* ── TOP 10 ─────────────────────────── */
+.top10{list-style:none; margin:0; padding:0; counter-reset:r}
+.top10 li{
+  display:grid; grid-template-columns:44px 1fr auto; align-items:center; gap:12px;
+  padding:9px 0; border-bottom:1px solid var(--line);
+}
+.top10 li:last-child{border-bottom:0}
+.rank{
+  width:40px; height:40px; border-radius:12px; background:var(--danger); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:.95em;
+}
+.top10 li:nth-child(n+4) .rank{background:var(--sub)}
+.wname{font-weight:800; word-break:break-all}
+.bar{height:12px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:5px}
+.bar > i{display:block; height:100%; background:var(--danger); border-radius:99px}
+.wnum{color:var(--sub); font-size:.8em; white-space:nowrap; text-align:right}
+
+canvas{width:100%; height:auto; display:block; border-radius:14px; background:var(--bg)}
+.legend{display:flex; gap:16px; justify-content:center; margin-top:10px; font-size:.85em; color:var(--sub); flex-wrap:wrap}
+.legend b{display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; margin-right:5px}
+
+table.store{width:100%; border-collapse:collapse; font-size:.85em; margin-top:12px}
+table.store th,table.store td{border-bottom:1px solid var(--line); padding:9px 6px; text-align:left; vertical-align:top}
+table.store th{color:var(--sub); font-weight:700; white-space:nowrap}
+table.store td.m{word-break:break-all}
+.tag{border-radius:99px; padding:2px 9px; font-size:.85em; font-weight:800; white-space:nowrap}
+.tag.s{background:var(--danger-bg); color:var(--danger-ink)}
+.tag.n{background:var(--safe-bg); color:var(--safe)}
+
+.fsbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px}
+.fsbar span{font-size:.85em; color:var(--sub); font-weight:700}
+.fsbtn{
+  border:2px solid var(--line); background:var(--card); color:var(--ink);
+  border-radius:12px; padding:9px 15px; font:inherit; font-weight:800; cursor:pointer;
+}
+.fsbtn[aria-pressed="true"]{background:var(--brand); color:#fff; border-color:var(--brand)}
+
+.stat{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px}
+.stat div{
+  flex:1 1 130px; background:var(--bg); border:2px solid var(--line);
+  border-radius:14px; padding:11px 13px;
+}
+.stat b{display:block; font-size:1.5em; font-weight:900; letter-spacing:-.02em}
+.stat span{font-size:.78em; color:var(--sub)}
+
+label.sw{display:flex; align-items:center; gap:11px; margin-top:14px; cursor:pointer; font-size:.92em}
+label.sw input{width:30px; height:30px; accent-color:var(--brand)}
+
+footer{color:var(--sub); font-size:.8em; text-align:center; padding:20px 6px; line-height:1.7}
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+  background:#16202e; color:#fff; padding:14px 22px; border-radius:14px; font-size:.9em;
+  font-weight:700; opacity:0; pointer-events:none; transition:.25s; z-index:99; max-width:90vw;
+}
+.toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
+@media (max-width:520px){
+  .wrap{padding:10px 9px 50px}
+  .card{padding:15px; border-radius:16px}
+  header.top h1{font-size:1.45em}
+}
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <h1>📵 스미싱 문자 판별기</h1>
+    <p>받은 문자를 붙여넣으면 위험도를 알려드립니다 · 문자 1,000건 학습</p>
+  </header>
+
+  <div class="fsbar">
+    <span>글씨 크기</span>
+    <button class="fsbtn" data-fs="20" aria-pressed="true">보통</button>
+    <button class="fsbtn" data-fs="24" aria-pressed="false">크게</button>
+    <button class="fsbtn" data-fs="29" aria-pressed="false">아주 크게</button>
+  </div>
+
+  <!-- 입력 -->
+  <div class="card">
+    <h2><span class="em">✍️</span> 문자 내용을 붙여넣으세요</h2>
+    <textarea id="inp" placeholder="예) [Web발신]&#10;[국세청] 종합소득세 환급금 356,000원이 미수령 상태입니다. 신청 ㅁㅁ링크"></textarea>
+    <button class="btn big" id="go">🔍 판별하기</button>
+    <div class="row">
+      <button class="btn sec sm" id="clr">지우기</button>
+      <button class="btn sec sm" id="ex1">스미싱 예시</button>
+      <button class="btn sec sm" id="ex2">정상 예시</button>
+    </div>
+    <p class="hint">입력한 문자는 서버로 전송되지 않습니다. 판별은 모두 이 브라우저 안에서 이루어집니다.</p>
+  </div>
+
+  <!-- 결과 -->
+  <div class="card" id="result">
+    <h2><span class="em">📊</span> 판별 결과</h2>
+
+    <div class="gauge">
+      <svg viewBox="0 0 200 118" role="img" aria-label="위험도 게이지">
+        <path d="M18 104 A82 82 0 0 1 182 104" fill="none" stroke="var(--line)" stroke-width="20" stroke-linecap="round"/>
+        <path id="arc" d="M18 104 A82 82 0 0 1 182 104" fill="none" stroke="var(--danger)" stroke-width="20"
+              stroke-linecap="round" stroke-dasharray="0 999" style="transition:stroke-dasharray .7s ease"/>
+      </svg>
+      <div class="num" id="pct">0%</div>
+      <div class="cap">위험도 (0% 안전 ~ 100% 위험)</div>
+    </div>
+
+    <div class="verdict" id="vbox">
+      <div class="ico" id="vico">❓</div>
+      <div>
+        <div class="t1" id="vtitle">-</div>
+        <div class="t2" id="vsub">-</div>
+      </div>
+    </div>
+
+    <h2 style="font-size:1.05em"><span class="em">🖍️</span> 위험 신호 단어 표시</h2>
+    <div class="msgbox" id="hl"></div>
+    <div class="chips" id="chips"></div>
+    <p class="hint">진한 빨강일수록 스미싱 문자에서 자주 나오는 단어입니다.</p>
+
+    <div class="tip" id="tip"></div>
+
+    <div class="row">
+      <button class="btn dgr sm" id="rep">🚨 스팸으로 신고 · 보관</button>
+      <button class="btn ok sm" id="repok">✅ 정상 문자로 등록</button>
+    </div>
+  </div>
+
+  <!-- TOP 10 -->
+  <div class="card">
+    <h2><span class="em">🚨</span> 사기 신호 단어 TOP 10</h2>
+    <ol class="top10" id="top10"></ol>
+    <p class="hint">학습 데이터에서 스미싱 문자에 유난히 많이 나온 단어 순위입니다.</p>
+  </div>
+
+  <!-- 워드클라우드 -->
+  <div class="card">
+    <h2><span class="em">☁️</span> 스미싱 문자 워드클라우드</h2>
+    <canvas id="wc" height="440"></canvas>
+    <p class="hint">글씨가 클수록 스미싱 문자에서 강한 신호로 쓰이는 단어입니다.</p>
+  </div>
+
+  <!-- 점지도 -->
+  <div class="card">
+    <h2><span class="em">🗺️</span> 문자 분포 점지도</h2>
+    <canvas id="mapc" height="440"></canvas>
+    <div class="legend">
+      <span><b style="background:#d64545"></b>스미싱</span>
+      <span><b style="background:#2f7fbf"></b>정상</span>
+      <span><b style="background:#111;box-shadow:0 0 0 2px #fff"></b>내가 입력한 문자</span>
+    </div>
+    <p class="hint">학습 문자 1,000건을 2차원에 찍은 지도입니다. <b>가로축</b>은 모델이 배운 스미싱 신호의 세기,
+      <b>세로축</b>은 그 외 문자들이 가장 크게 갈리는 방향(주성분)입니다. 서로 가까운 점일수록 단어 구성이 비슷합니다.</p>
+  </div>
+
+  <!-- 보관함 -->
+  <div class="card">
+    <h2><span class="em">🗄️</span> 신고 문자 보관함</h2>
+    <div class="stat">
+      <div><b id="s1">0</b><span>보관된 문자</span></div>
+      <div><b id="s2">0</b><span>스미싱으로 보관</span></div>
+      <div><b id="s3">0</b><span>학습 문자 수</span></div>
+      <div><b id="s4">-</b><span>학습 정확도</span></div>
+    </div>
+    <p class="hint" style="margin-top:8px">학습 정확도는 학습 데이터를 5조각으로 나눠 서로 맞혀보는 <b>5-겹 교차검증</b> 결과입니다.</p>
+    <label class="sw"><input type="checkbox" id="auto" checked> 스미싱으로 판정된 문자를 자동으로 보관하기</label>
+    <div class="row">
+      <button class="btn sec sm" id="retrain">🔁 보관 문자까지 학습</button>
+      <button class="btn sec sm" id="exp">⬇️ CSV 내려받기</button>
+      <button class="btn sec sm" id="del">🗑️ 전부 지우기</button>
+    </div>
+    <table class="store"><thead><tr><th>보관 시각</th><th>분류</th><th>문자 내용</th></tr></thead>
+      <tbody id="stbody"></tbody></table>
+    <p class="hint">보관된 문자는 <b>이 기기의 브라우저에만</b> 저장됩니다(localStorage). 다른 사람이나 서버로 전송되지 않으며, [전부 지우기]로 언제든 삭제할 수 있습니다.</p>
+  </div>
+
+  <!-- 데이터 -->
+  <div class="card">
+    <h2><span class="em">📁</span> 내 데이터로 다시 학습</h2>
+    <p class="hint" style="margin-top:0">
+      <b>문자내용, 분류</b> 두 열을 가진 CSV 파일을 고르면 그 데이터로 즉시 다시 학습합니다.
+      (분류 값은 <b>스미싱</b> / <b>정상</b>)
+    </p>
+    <input type="file" id="csv" accept=".csv,text/csv" style="margin-top:10px; font:inherit; width:100%">
+    <div class="row"><button class="btn sec sm" id="reset">기본 데이터로 되돌리기</button></div>
+  </div>
+
+  <footer>
+    이 앱은 통계 기반 참고 도구입니다. 결과가 100% 정확하지 않으므로 최종 판단은 직접 하세요.<br>
+    의심되면 <b>절대 링크를 누르지 말고</b> 경찰청 <b>112</b>, 인터넷진흥원 <b>118</b>, 금융감독원 <b>1332</b>로 문의하세요.
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ==========================================================================
+   0. 학습 데이터 (CSV 내장)
+   ========================================================================== */
+const RAW_CSV = `문자내용,분류
+"[Web발신]
+해외 직구 35,000원 결제 승인 안내. 취소 문의 1588-0747",스미싱
+"[Web발신]
+[신한은행] 대출 심사 결과 안내드립니다. 결과 확인 hxxp://bit.ly/65zg5",스미싱
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://vo.la/h98r,스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://kr-8j9w.top",스미싱
+"[Web발신]
+귀하의 명의로 휴대폰이 개통되었습니다. 신고 ㅁㅁ링크",스미싱
+엄마 나 폰 고장나서 컴퓨터로 문자해. 급하게 필요한거 있어서 http://vo.la/gm9j,스미싱
+이번 주말에 시간 괜찮아? 얼굴 한번 보자,정상
+"[Web발신]
+[국민연금공단] 종합소득세 환급금 128,000원이 미수령 상태입니다. 신청 ㅁㅁ링크",스미싱
+"[Web발신]
+[한진택배] 배송지 미확인 상품 반송 예정입니다. 확인 hxxp://bit.ly/kwwwh",스미싱
+[학원] 정대현 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+기업은행 입금 2,480,000원
+잔액 2,480,000원
+12/19 15:07",정상
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 070-8101-7170",스미싱
+"[Web발신]
+[건강보험공단] 종합소득세 환급금 12,900원이 미수령 상태입니다. 신청 ㅁㅁ링크",스미싱
+"[Web발신]
+고객님 포인트 소멸 예정입니다. 무료 전환 신청 http://kr-2vdr.top",스미싱
+"[Web발신]
+[삼성카드] 해외결제 356,000원 승인. 본인 아닐시 즉시 문의 ㅁㅁ링크",스미싱
+"[Web발신]
+신한카드 승인 조*주
+356,000원 일시불
+3/21 13:20
+롯데마트 자세히 보기: https://www.naver.com/3db9",정상
+"[Web발신]
+[관세청] 재택 근무자 지원금 신청 접수중입니다 http://fhsw.duckdns.org",스미싱
+[헬스장] 회원권이 10/11에 만료됩니다. 데스크로 문의 주세요. 앱에서 확인: https://www.naver.com/thv4,정상
+"[Web발신]
+새마을금고 체크카드 승인 356,000원 백화점 09:12 자세히 보기: https://www.naver.com/23fx",정상
+"[Web발신]
+[쿠팡] 배송지 미확인 상품 반송 예정입니다. 확인 http://8z4h.duckdns.org",스미싱
+조은주아 생일 축하해! 좋은 하루 보내 자세히 보기: https://www.naver.com/q78d,정상
+"[Web발신]
+[로젠택배] 배송지 미확인 상품 반송 예정입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+카카오뱅크 체크카드 승인 2,480,000원 G마켓 15:07",정상
+안녕하세요 쿠팡 정대현입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://vo.la/th5g",스미싱
+[헬스장] 회원권이 2/03에 만료됩니다. 데스크로 문의 주세요.,정상
+"[Web발신]
+재택 부업 모집. 하루 2시간 고수익 보장 http://vo.la/wjr2",스미싱
+[아파트관리사무소] 단수 안내: 10/11 15:07부터 2시간 단수 예정입니다.,정상
+"[Web발신]
+BC카드 승인 김*수
+356,000원 일시불
+8/14 21:15
+11번가 앱에서 확인: https://www.naver.com/uy8p",정상
+[중앙중학교] 현장학습 관련 동의서 제출 부탁드립니다. 자세히 보기: https://www.naver.com/teue,정상
+박정호 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+"[Web발신]
+롯데카드 7/05 청구금액 35,000원 안내드립니다. 문의 1666-7026",정상
+안녕하세요 쿠팡 강미경입니다. 부재중이라 경비실에 맡겨두었습니다. 앱에서 확인: https://www.naver.com/pm3r,정상
+"[Web발신]
+기업은행 예금 만기 안내. 자세한 내용은 영업점 또는 070-7426-9736",정상
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 02-4410-5783",스미싱
+"[Web발신]
+[긴급] 미사용 포인트 770,000점 오늘 소멸됩니다 hxxp://bit.ly/9xs3z",스미싱
+"[Web발신]
+기업은행 예금 만기 안내. 자세한 내용은 영업점 또는 070-5428-9511",정상
+"[Web발신]
+[질병관리청] 소상공인 재난지원금 지급 대상 안내 ㅁㅁ링크",스미싱
+안녕하세요 한진택배 윤성호입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 02-0053-8289",스미싱
+"[Web발신]
+앱 정기결제 89,000원 자동 갱신 예정입니다. 해지 ㅁㅁ링크",스미싱
+"[Web발신]
+[경찰청] 정부지원금 신청 대상자로 선정되셨습니다. 신청기한 오늘까지 http://kr-hrzm.top",스미싱
+"[Web발신]
+[행정안전부] 건강검진 미수검자 안내. 대상자 조회 http://kr-gzm3.top",스미싱
+"[Web발신]
+[삼성카드] 해외결제 2,480,000원 승인. 본인 아닐시 즉시 문의 http://kr-vzvk.top",스미싱
+"[Web발신]
+[롯데택배] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 http://me2.kr/z9yr",스미싱
+[모바일 청첩장] 정대현 결혼합니다. 초대장 확인 http://c6yj.duckdns.org,스미싱
+행복치과입니다. 내일 09:12 예약 확인 전화드렸는데 부재중이셨습니다. 1666-1738 자세히 보기: https://www.naver.com/z24x,정상
+[한빛고등학교] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다.,정상
+[LG U+] 데이터 사용량이 80%를 초과했습니다. 남은 기간 확인하세요. 자세히 보기: https://www.naver.com/ewxz,정상
+"[Web발신]
+새마을금고 체크카드 승인 1,250,000원 G마켓 21:15",정상
+어제 고마웠어. 다음에 밥 한번 사줄게 앱에서 확인: https://www.naver.com/vhmt,정상
+[모바일 청첩장] 임지은 결혼합니다. 초대장 확인 http://nd6a.duckdns.org,스미싱
+"[Web발신]
+[행정안전부] 건강검진 미수검자 안내. 대상자 조회 http://han.gl/3cgf",스미싱
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://me2.kr/rr37",스미싱
+"[Web발신]
+[국세청] 정부지원금 신청 대상자로 선정되셨습니다. 신청기한 오늘까지 ㅁㅁ링크",스미싱
+[건강보험공단] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다.,정상
+"[Web발신]
+고객님 포인트 소멸 예정입니다. 무료 전환 신청 http://xn--pxa37.xyz",스미싱
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://y39m.duckdns.org",스미싱
+"[Web발신]
+[삼성카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 http://vo.la/gcqu",스미싱
+오늘 회식 10:45에 시작합니다. 장소는 사무실 앞에서 모입니다. 앱에서 확인: https://www.naver.com/tkbb,정상
+"[Web발신]
+하나은행 체크카드 승인 35,000원 G마켓 10:45",정상
+[알뜰폰] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다. 앱에서 확인: https://www.naver.com/87ws,정상
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://z2re.duckdns.org",스미싱
+"[Web발신]
+농협은행 예금 만기 안내. 자세한 내용은 영업점 또는 070-9259-7461",정상
+[미용실] 예약 12/19 21:15 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+"[Web발신]
+[관세청] 건강검진 미수검자 안내. 대상자 조회 http://xn--ttwqm.xyz",스미싱
+박정호님 내일 회의 10:45으로 변경되었습니다. 확인 부탁드립니다.,정상
+정대현 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요. 자세히 보기: https://www.naver.com/gmtu,정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://kr-y5uv.top,스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://me2.kr/xx3g",스미싱
+나 지금 출발했어. 09:12쯤 도착할 것 같아 앱에서 확인: https://www.naver.com/vppn,정상
+[미용실] 예약 3/21 10:45 확인되었습니다. 늦지 않게 방문 부탁드려요. 앱에서 확인: https://www.naver.com/2q99,정상
+동생 사진 잘 받았어요. 건강 조심하세요,정상
+"[Web발신]
+[로젠택배] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[국민카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 hxxp://bit.ly/47wuy",스미싱
+"[Web발신]
+새마을금고 체크카드 승인 2,480,000원 롯데마트 15:07 앱에서 확인: https://www.naver.com/gp5b",정상
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://xn--dhm2p.xyz",스미싱
+"[Web발신]
+농협은행 입금 35,000원
+잔액 770,000원
+10/11 09:12",정상
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://han.gl/uhmp",스미싱
+[한빛고등학교] 학부모 상담 주간 안내드립니다. 신청서를 보내드렸습니다.,정상
+[미용실] 예약 2/03 09:12 확인되었습니다. 늦지 않게 방문 부탁드려요. 앱에서 확인: https://www.naver.com/sjb2,정상
+"[Web발신]
+축하합니다! 롯데마트 경품 이벤트에 당첨되셨습니다 http://24na.duckdns.org",스미싱
+"[Web발신]
+[농협은행] 대출 심사 결과 안내드립니다. 결과 확인 http://me2.kr/vm9b",스미싱
+[중앙중학교] 급식 식단표를 가정통신문으로 배부하였습니다.,정상
+"[Web발신]
+[질병관리청] 종합소득세 환급금 1,250,000원이 미수령 상태입니다. 신청 ㅁㅁ링크",스미싱
+[부고] 삼가 고인의 명복을 빕니다. 부고장 hxxp://bit.ly/qtqka,스미싱
+"[Web발신]
+[알림] 미납 통신요금 1,250,000원 정지 예정 안내 ㅁㅁ링크",스미싱
+[우체국택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다. 자세히 보기: https://www.naver.com/75zy,정상
+"[Web발신]
+축하합니다! 이마트 경품 이벤트에 당첨되셨습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[CJ대한통운] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 http://han.gl/k29u",스미싱
+"[Web발신]
+신한카드 승인 한*철
+35,000원 일시불
+3/21 19:48
+롯데마트 앱에서 확인: https://www.naver.com/rjkc",정상
+[미용실] 예약 12/19 13:20 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+형 사진 잘 받았어요. 건강 조심하세요,정상
+"[Web발신]
+[국세청] 종합소득세 환급금 2,480,000원이 미수령 상태입니다. 신청 http://kr-espv.top",스미싱
+[한빛고등학교] 현장학습 관련 동의서 제출 부탁드립니다.,정상
+"[Web발신]
+[로젠택배] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 http://me2.kr/pf82",스미싱
+[질병관리청] 주민세 납부 기한은 1/12까지입니다. 문의는 02-8835-4164 앱에서 확인: https://www.naver.com/q3bp,정상
+"[Web발신]
+[알림] 미납 통신요금 12,900원 정지 예정 안내 hxxp://bit.ly/5p68u",스미싱
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 http://vo.la/t6fz",스미싱
+[푸른어린이집] 현장학습 관련 동의서 제출 부탁드립니다.,정상
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 hxxp://bit.ly/8bwz5",스미싱
+"[Web발신]
+[새마을금고] 저금리 대환대출 최대 89,000원 한도확인 가능합니다 http://kr-8mu4.top",스미싱
+"[Web발신]
+해외 직구 89,000원 결제 승인 안내. 취소 문의 02-6227-0179",스미싱
+"[Web발신]
+[국민카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 ㅁㅁ링크",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1666-0661",스미싱
+[롯데마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 02-3405-8716,정상
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 ㅁㅁ링크",스미싱
+"[Web발신]
+[CJ대한통운] 주소불일치로 물품 배송이 보류되었습니다. 주소 확인 http://89ze.duckdns.org",스미싱
+휴가 결재 승인되었습니다. 인수인계 진행해 주세요.,정상
+"[Web발신]
+[관세청] 건강검진 미수검자 안내. 대상자 조회 http://me2.kr/3sy2",스미싱
+"[Web발신]
+우리은행 출금 356,000원
+10/11 10:45 자동이체",정상
+"[Web발신]
+[알림] 미납 통신요금 128,000원 정지 예정 안내 http://han.gl/hcw4",스미싱
+[도서관] 대출하신 도서 반납일이 10/11입니다.,정상
+"[Web발신]
+[우리은행] 고객님 계좌에서 128,000원 이체 시도가 감지되었습니다 hxxp://bit.ly/thvve",스미싱
+"[Web발신]
+[알림] 미납 통신요금 89,000원 정지 예정 안내 hxxp://bit.ly/a6pe3",스미싱
+"[Web발신]
+BC카드 5/17 청구금액 1,250,000원 안내드립니다. 문의 1588-5533 앱에서 확인: https://www.naver.com/6rp2",정상
+"[Web발신]
+신한카드 승인 조*주
+89,000원 일시불
+12/19 19:48
+백화점",정상
+나 지금 출발했어. 10:45쯤 도착할 것 같아,정상
+"[Web발신]
+[쿠팡] 89,000원 결제가 완료되었습니다. 본인 아니면 02-4391-3986",스미싱
+월요일 출근 전에 보고서 초안 공유 부탁드립니다. 감사합니다. 앱에서 확인: https://www.naver.com/as3w,정상
+[부고] 삼가 고인의 명복을 빕니다. 부고장 http://han.gl/2kq5,스미싱
+"[Web발신]
+[국민은행] 저금리 대환대출 최대 770,000원 한도확인 가능합니다 http://swth.duckdns.org",스미싱
+"[Web발신]
+[알림] 미납 통신요금 35,000원 정지 예정 안내 ㅁㅁ링크",스미싱
+"[Web발신]
+G마켓 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 http://kr-gqer.top",스미싱
+[중앙중학교] 학부모 상담 주간 안내드립니다. 신청서를 보내드렸습니다.,정상
+"[Web발신]
+[국민은행] 저금리 대환대출 최대 48,700원 한도확인 가능합니다 http://han.gl/aadz",스미싱
+"[Web발신]
+[하나은행] 저금리 대환대출 최대 35,000원 한도확인 가능합니다 ㅁㅁ링크",스미싱
+박정호님 내일 회의 21:15으로 변경되었습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+[하나카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 http://me2.kr/4gue",스미싱
+"[Web발신]
+[투자] 종목 무료 추천방 오픈. 수익률 182% 실화입니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[국민연금공단] 미납 과태료 89,000원 최종 안내. 미납시 재산압류 http://han.gl/sm5w",스미싱
+"[Web발신]
+[서울시청] 미납 과태료 770,000원 최종 안내. 미납시 재산압류 ㅁㅁ링크",스미싱
+"[Web발신]
+[롯데택배] 배송지 미확인 상품 반송 예정입니다. 확인 ㅁㅁ링크",스미싱
+오늘 회식 09:12에 시작합니다. 장소는 사무실 앞에서 모입니다. 자세히 보기: https://www.naver.com/rpa7,정상
+"[Web발신]
+[국민은행] 고객님 계좌에서 770,000원 이체 시도가 감지되었습니다 ㅁㅁ링크",스미싱
+엄마 나 폰 고장나서 컴퓨터로 문자해. 급하게 필요한거 있어서 http://me2.kr/vem5,스미싱
+[서울시청] 주민세 납부 기한은 11/02까지입니다. 문의는 070-0872-0694,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 02-0678-2138",스미싱
+[도서관] 대출하신 도서 반납일이 6/28입니다.,정상
+"[Web발신]
+삼성카드 승인 조*주
+89,000원 일시불
+6/28 22:40
+이마트 앱에서 확인: https://www.naver.com/99bg",정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 hxxp://bit.ly/jz8dz,스미싱
+"[Web발신]
+새마을금고 체크카드 승인 770,000원 신세계몰 17:33",정상
+"[Web발신]
+[하나카드] 해외결제 89,000원 승인. 본인 아닐시 즉시 문의 http://han.gl/sc8p",스미싱
+이영희 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+[세탁소] 맡기신 옷 세탁 완료되었습니다. 편하실 때 찾아가세요. 앱에서 확인: https://www.naver.com/6hzx,정상
+정대현아 생일 축하해! 좋은 하루 보내,정상
+[아파트관리사무소] 정기 소방점검이 3/21에 있습니다. 협조 부탁드립니다. 자세히 보기: https://www.naver.com/mzb7,정상
+"[LG U+] 이번 달 요금은 48,700원입니다. 자세한 내역은 고객센터 010-2011-9432",정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://xn--jqn6y.xyz,스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://me2.kr/cc4s",스미싱
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://me2.kr/ndvx",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 070-9993-8943",스미싱
+[LG U+] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다.,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1588-1314",스미싱
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://me2.kr/ttt6",스미싱
+[모바일 청첩장] 조은주 결혼합니다. 초대장 확인 http://han.gl/kjf9,스미싱
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://xn--z4jfu.xyz",스미싱
+[새싹유치원] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다. 앱에서 확인: https://www.naver.com/447g,정상
+"[Web발신]
+[새마을금고] 저금리 대환대출 최대 1,250,000원 한도확인 가능합니다 http://xn--hfygf.xyz",스미싱
+비 온대. 우산 챙겨서 나가 자세히 보기: https://www.naver.com/nssa,정상
+"[Web발신]
+[CU편의점택배] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 ㅁㅁ링크",스미싱
+[롯데택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 010-1128-9551,정상
+"[Web발신]
+국민은행 출금 128,000원
+7/05 22:40 자동이체",정상
+"[Web발신]
+우리은행 예금 만기 안내. 자세한 내용은 영업점 또는 1666-4415",정상
+"[Web발신]
+[기업은행] 고객님 계좌에서 35,000원 이체 시도가 감지되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[우체국택배] 송장번호 오류로 배송 지연. 정보 수정 바랍니다 ㅁㅁ링크",스미싱
+할머니 약 잘 챙겨 드시고 계세요. 주말에 갈게요 자세히 보기: https://www.naver.com/b4w9,정상
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://han.gl/t245",스미싱
+[국민연금공단] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 010-9510-3817,정상
+"[LG U+] 이번 달 요금은 89,000원입니다. 자세한 내역은 고객센터 02-6046-9217",정상
+[새싹유치원] 현장학습 관련 동의서 제출 부탁드립니다. 앱에서 확인: https://www.naver.com/hydb,정상
+"[Web발신]
+[서울시청] 재택 근무자 지원금 신청 접수중입니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[서울시청] 건강검진 미수검자 안내. 대상자 조회 http://me2.kr/m53x",스미싱
+강미경아 생일 축하해! 좋은 하루 보내,정상
+"[Web발신]
+하나은행 출금 89,000원
+6/28 19:48 자동이체",정상
+[한진택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다. 자세히 보기: https://www.naver.com/agad,정상
+[햇살초등학교] 급식 식단표를 가정통신문으로 배부하였습니다. 자세히 보기: https://www.naver.com/r9ue,정상
+[모바일 청첩장] 박정호 결혼합니다. 초대장 확인 ㅁㅁ링크,스미싱
+"[Web발신]
+[새마을금고] 비정상 로그인 감지. 계정 정지 예정입니다 http://xn--tx3km.xyz",스미싱
+"[Web발신]
+[우체국택배] 주소불일치로 물품 배송이 보류되었습니다. 주소 확인 hxxp://bit.ly/n6gx6",스미싱
+할머니 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게,정상
+"[Web발신]
+[새마을금고] 비정상 로그인 감지. 계정 정지 예정입니다 http://vo.la/rbge",스미싱
+삼촌 약 잘 챙겨 드시고 계세요. 주말에 갈게요,정상
+[학원] 한상철 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+[경찰청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다. 앱에서 확인: https://www.naver.com/racp,정상
+"[Web발신]
+새마을금고 출금 128,000원
+4/09 17:33 자동이체",정상
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://kr-pj2s.top",스미싱
+"[Web발신]
+신한은행 입금 770,000원
+잔액 12,900원
+8/14 10:45",정상
+"[Web발신]
+[국민카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+새마을금고 출금 89,000원
+2/03 15:07 자동이체",정상
+"[Web발신]
+[우리은행] 저금리 대환대출 최대 128,000원 한도확인 가능합니다 http://kr-gdmu.top",스미싱
+[새싹유치원] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다.,정상
+"[Web발신]
+[국민연금공단] 건강검진 미수검자 안내. 대상자 조회 http://me2.kr/cu4e",스미싱
+안녕하세요 CU편의점택배 윤성호입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+"[Web발신]
+신한카드 승인 박*호
+35,000원 일시불
+10/11 17:33
+11번가",정상
+[SKT] 데이터 사용량이 80%를 초과했습니다. 남은 기간 확인하세요.,정상
+안녕하세요 우체국택배 조은주입니다. 부재중이라 경비실에 맡겨두었습니다. 자세히 보기: https://www.naver.com/kfst,정상
+우리정형외과 예약 안내: 3/21 19:48. 변경은 02-5806-4373로 연락 주세요. 앱에서 확인: https://www.naver.com/35zt,정상
+"[Web발신]
+[건강보험공단] 소상공인 재난지원금 지급 대상 안내 http://c74e.duckdns.org",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://6ttn.duckdns.org",스미싱
+"[Web발신]
+[행정안전부] 미납 과태료 1,250,000원 최종 안내. 미납시 재산압류 ㅁㅁ링크",스미싱
+"[KT] 이번 달 요금은 89,000원입니다. 자세한 내역은 고객센터 1666-3795",정상
+"[Web발신]
+[투자] 종목 무료 추천방 오픈. 수익률 182% 실화입니다 http://han.gl/5t2r",스미싱
+나 지금 출발했어. 09:12쯤 도착할 것 같아,정상
+[국세청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 070-0572-4435,정상
+[국제우편] 통관보류 물품 안내드립니다. 미확인시 폐기 처리 http://han.gl/zxwe,스미싱
+"[Web발신]
+[건강보험공단] 재택 근무자 지원금 신청 접수중입니다 ㅁㅁ링크",스미싱
+"[Web발신]
+새마을금고 예금 만기 안내. 자세한 내용은 영업점 또는 1666-1239",정상
+서울내과의원 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다. 자세히 보기: https://www.naver.com/auae,정상
+이모 약 잘 챙겨 드시고 계세요. 주말에 갈게요 자세히 보기: https://www.naver.com/6ta8,정상
+[헬스장] 회원권이 1/12에 만료됩니다. 데스크로 문의 주세요. 자세히 보기: https://www.naver.com/b6ga,정상
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://me2.kr/56ys",스미싱
+"[알뜰폰] 이번 달 요금은 770,000원입니다. 자세한 내역은 고객센터 02-9571-4500",정상
+나 지금 출발했어. 17:33쯤 도착할 것 같아,정상
+"[Web발신]
+[롯데마트] 주문하신 상품이 결제 처리되었습니다. 취소 ㅁㅁ링크",스미싱
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 http://ypdx.duckdns.org",스미싱
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://me2.kr/tqj3",스미싱
+"국민카드 카드 이용대금 1,250,000원이 정상 출금되었습니다.",정상
+"[Web발신]
+신한은행 체크카드 승인 1,250,000원 신세계몰 09:12 자세히 보기: https://www.naver.com/j7kx",정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://kr-66q4.top,스미싱
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://2bg2.duckdns.org",스미싱
+아빠 지금 통화 안돼서 문자로 보내. 이거 좀 확인해줘 ㅁㅁ링크,스미싱
+[KT] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다.,정상
+"[Web발신]
+[투자] 종목 무료 추천방 오픈. 수익률 182% 실화입니다 http://vo.la/qnrp",스미싱
+[한진택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다.,정상
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 hxxp://bit.ly/e96kp",스미싱
+[서울시청] 주민세 납부 기한은 4/09까지입니다. 문의는 02-1948-2375,정상
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 ㅁㅁ링크",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1666-8650",스미싱
+[주민센터] 신청하신 서류 발급이 완료되었습니다. 방문 수령 바랍니다.,정상
+[백화점] 주문번호 확인 결과 정상 배송 중입니다. 문의 1666-8619,정상
+안녕하세요 쿠팡 윤성호입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+[한진택배] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다. 자세히 보기: https://www.naver.com/7suf,정상
+"[Web발신]
+국민카드 승인 강*경
+48,700원 일시불
+3/21 22:40
+신세계몰 자세히 보기: https://www.naver.com/uyqt",정상
+박정호님 내일 회의 17:33으로 변경되었습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+[삼성카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 http://vo.la/7rn9",스미싱
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 hxxp://bit.ly/yjjym",스미싱
+"[Web발신]
+해외 직구 128,000원 결제 승인 안내. 취소 문의 1666-9353",스미싱
+[미용실] 예약 3/21 19:48 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+"[Web발신]
+우리은행 체크카드 승인 128,000원 11번가 10:45",정상
+"[SKT] 이번 달 요금은 2,480,000원입니다. 자세한 내역은 고객센터 1666-6821",정상
+"[Web발신]
+[국세청] 건강검진 미수검자 안내. 대상자 조회 http://xn--p3dqj.xyz",스미싱
+"[Web발신]
+[국세청] 종합소득세 환급금 48,700원이 미수령 상태입니다. 신청 ㅁㅁ링크",스미싱
+최수진아 생일 축하해! 좋은 하루 보내,정상
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://kr-w457.top",스미싱
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://vo.la/fexa",스미싱
+[아파트관리사무소] 정기 소방점검이 7/05에 있습니다. 협조 부탁드립니다.,정상
+"[Web발신]
+[이벤트] 무료 상품권 770,000원 선착순 지급중. 지금 신청 ㅁㅁ링크",스미싱
+"[Web발신]
+기업은행 예금 만기 안내. 자세한 내용은 영업점 또는 070-2096-4202",정상
+[도서관] 대출하신 도서 반납일이 8/14입니다.,정상
+"[Web발신]
+롯데카드 10/11 청구금액 1,250,000원 안내드립니다. 문의 02-3927-1876 자세히 보기: https://www.naver.com/b5rh",정상
+"[Web발신]
+고객님 포인트 소멸 예정입니다. 무료 전환 신청 http://vo.la/wvxp",스미싱
+"[Web발신]
+[롯데마트] 12,900원 결제가 완료되었습니다. 본인 아니면 010-3005-3768",스미싱
+"[Web발신]
+[백화점] 356,000원 결제가 완료되었습니다. 본인 아니면 1588-3327",스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[질병관리청] 재택 근무자 지원금 신청 접수중입니다 http://sbzq.duckdns.org",스미싱
+"현대카드 카드 이용대금 770,000원이 정상 출금되었습니다. 앱에서 확인: https://www.naver.com/ww8k",정상
+김민수님 내일 회의 21:15으로 변경되었습니다. 확인 부탁드립니다.,정상
+[도서관] 대출하신 도서 반납일이 4/09입니다.,정상
+한상철 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+[CJ대한통운] 배송이 완료되었습니다. 이용해 주셔서 감사합니다.,정상
+[경찰청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 1588-2314,정상
+엄마 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게,정상
+나 지금 출발했어. 10:45쯤 도착할 것 같아 자세히 보기: https://www.naver.com/khqp,정상
+[아파트관리사무소] 단수 안내: 4/09 19:48부터 2시간 단수 예정입니다.,정상
+[새싹유치원] 현장학습 관련 동의서 제출 부탁드립니다. 자세히 보기: https://www.naver.com/8z9h,정상
+[모바일 청첩장] 윤성호 결혼합니다. 초대장 확인 http://xn--ug7sk.xyz,스미싱
+안녕하세요 한진택배 최수진입니다. 부재중이라 경비실에 맡겨두었습니다. 자세히 보기: https://www.naver.com/sdse,정상
+"[Web발신]
+[백화점] 주문하신 상품이 결제 처리되었습니다. 취소 hxxp://bit.ly/y5pqg",스미싱
+[한빛고등학교] 급식 식단표를 가정통신문으로 배부하였습니다. 앱에서 확인: https://www.naver.com/j7m6,정상
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://han.gl/f4pc",스미싱
+[로젠택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 강미경 1666-7566 앱에서 확인: https://www.naver.com/w5a6,정상
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://han.gl/55y6",스미싱
+"[Web발신]
+[CU편의점택배] 송장번호 오류로 배송 지연. 정보 수정 바랍니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[새마을금고] 대출 심사 결과 안내드립니다. 결과 확인 http://han.gl/jd3s",스미싱
+"신한카드 카드 이용대금 35,000원이 정상 출금되었습니다.",정상
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://xn--24ssy.xyz",스미싱
+안녕하세요 쿠팡 박정호입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+미소안과 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다.,정상
+"하나카드 카드 이용대금 48,700원이 정상 출금되었습니다.",정상
+정대현 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+형 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게 자세히 보기: https://www.naver.com/fjtd,정상
+"[Web발신]
+[우리은행] 고객님 계좌에서 2,480,000원 이체 시도가 감지되었습니다 ㅁㅁ링크",스미싱
+김민수님 내일 회의 10:45으로 변경되었습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://vo.la/4muk",스미싱
+"[Web발신]
+[신한카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 http://xn--39vpk.xyz",스미싱
+"[Web발신]
+[현대카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[건강보험공단] 종합소득세 환급금 356,000원이 미수령 상태입니다. 신청 http://vo.la/w9fg",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 ㅁㅁ링크",스미싱
+[CJ대한통운] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+재택 부업 모집. 하루 2시간 고수익 보장 http://me2.kr/f7yr",스미싱
+"[Web발신]
+[한진택배] 배송지 미확인 상품 반송 예정입니다. 확인 http://vo.la/ryvg",스미싱
+[세탁소] 맡기신 옷 세탁 완료되었습니다. 편하실 때 찾아가세요. 앱에서 확인: https://www.naver.com/8ap3,정상
+"[Web발신]
+[기업은행] 저금리 대환대출 최대 35,000원 한도확인 가능합니다 hxxp://bit.ly/q3gq6",스미싱
+한마음병원 예약 안내: 11/02 10:45. 변경은 1666-8124로 연락 주세요.,정상
+"[Web발신]
+[국민은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 http://me2.kr/7gcp",스미싱
+아빠 지금 통화 안돼서 문자로 보내. 이거 좀 확인해줘 hxxp://bit.ly/evcuf,스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://xn--g7s4q.xyz",스미싱
+"[Web발신]
+[국민연금공단] 정부지원금 신청 대상자로 선정되셨습니다. 신청기한 오늘까지 http://me2.kr/d2aj",스미싱
+"[Web발신]
+11번가 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 http://kr-sjkn.top",스미싱
+"[Web발신]
+앱 정기결제 128,000원 자동 갱신 예정입니다. 해지 ㅁㅁ링크",스미싱
+[아파트관리사무소] 단수 안내: 4/09 21:15부터 2시간 단수 예정입니다.,정상
+[알뜰폰] 데이터 사용량이 80%를 초과했습니다. 남은 기간 확인하세요.,정상
+"[Web발신]
+국민은행 예금 만기 안내. 자세한 내용은 영업점 또는 02-4814-4789",정상
+[질병관리청] 주민세 납부 기한은 10/11까지입니다. 문의는 1588-9411 앱에서 확인: https://www.naver.com/9bhs,정상
+"[Web발신]
+[경찰청] 재택 근무자 지원금 신청 접수중입니다 ㅁㅁ링크",스미싱
+[미용실] 예약 12/19 15:07 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://han.gl/s9vx,스미싱
+장 보러 가는데 뭐 필요한 거 있어? 앱에서 확인: https://www.naver.com/mr28,정상
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 ㅁㅁ링크",스미싱
+"[Web발신]
+[기업은행] 비정상 로그인 감지. 계정 정지 예정입니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[카카오뱅크] 저금리 대환대출 최대 2,480,000원 한도확인 가능합니다 ㅁㅁ링크",스미싱
+엄마 나 폰 고장나서 컴퓨터로 문자해. 급하게 필요한거 있어서 ㅁㅁ링크,스미싱
+"[Web발신]
+[우리은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 070-5935-4415",스미싱
+비 온대. 우산 챙겨서 나가 자세히 보기: https://www.naver.com/gr3s,정상
+"[Web발신]
+해외 직구 770,000원 결제 승인 안내. 취소 문의 070-5911-6905",스미싱
+"[Web발신]
+[농협은행] 비정상 로그인 감지. 계정 정지 예정입니다 ㅁㅁ링크",스미싱
+할머니 사진 잘 받았어요. 건강 조심하세요 자세히 보기: https://www.naver.com/evmj,정상
+"[Web발신]
+[국민은행] 저금리 대환대출 최대 2,480,000원 한도확인 가능합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[쿠팡] 주문하신 상품이 결제 처리되었습니다. 취소 ㅁㅁ링크",스미싱
+"[Web발신]
+[현대카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 http://xn--htejq.xyz",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 http://7gzg.duckdns.org",스미싱
+"[Web발신]
+[국세청] 종합소득세 환급금 48,700원이 미수령 상태입니다. 신청 http://han.gl/mmfu",스미싱
+"[Web발신]
+앱 정기결제 356,000원 자동 갱신 예정입니다. 해지 ㅁㅁ링크",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 hxxp://bit.ly/cdv9c",스미싱
+"[Web발신]
+[CJ대한통운] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 http://v9pw.duckdns.org",스미싱
+"[Web발신]
+[이벤트] 무료 상품권 89,000원 선착순 지급중. 지금 신청 ㅁㅁ링크",스미싱
+"하나카드 카드 이용대금 2,480,000원이 정상 출금되었습니다. 자세히 보기: https://www.naver.com/8y8x",정상
+"[Web발신]
+앱 정기결제 770,000원 자동 갱신 예정입니다. 해지 http://te9n.duckdns.org",스미싱
+[부고] 삼가 고인의 명복을 빕니다. 부고장 http://han.gl/k4vn,스미싱
+"[Web발신]
+쿠팡 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[현대카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 ㅁㅁ링크",스미싱
+"[Web발신]
+[관세청] 재택 근무자 지원금 신청 접수중입니다 ㅁㅁ링크",스미싱
+G마켓 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요.,정상
+[질병관리청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 010-4057-9341 앱에서 확인: https://www.naver.com/fmbv,정상
+"[Web발신]
+[긴급] 미사용 포인트 35,000점 오늘 소멸됩니다 http://vo.la/k5d7",스미싱
+"[Web발신]
+[관세청] 국민연금 미환급금 조회 대상자입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[국민연금공단] 재택 근무자 지원금 신청 접수중입니다 http://xn--dtd2f.xyz",스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://han.gl/f965",스미싱
+[국세청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 1588-0505,정상
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://yrrh.duckdns.org",스미싱
+"BC카드 카드 이용대금 356,000원이 정상 출금되었습니다.",정상
+이번 주말에 시간 괜찮아? 얼굴 한번 보자 앱에서 확인: https://www.naver.com/z25g,정상
+"[Web발신]
+[CJ대한통운] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 hxxp://bit.ly/4tm7m",스미싱
+[주민센터] 신청하신 서류 발급이 완료되었습니다. 방문 수령 바랍니다. 앱에서 확인: https://www.naver.com/fm37,정상
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 hxxp://bit.ly/jthem",스미싱
+[LG U+] 데이터 사용량이 80%를 초과했습니다. 남은 기간 확인하세요.,정상
+엄마 약 잘 챙겨 드시고 계세요. 주말에 갈게요 앱에서 확인: https://www.naver.com/wx9v,정상
+"[Web발신]
+해외 직구 356,000원 결제 승인 안내. 취소 문의 1666-0434",스미싱
+우리정형외과 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다.,정상
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 hxxp://bit.ly/53kgd",스미싱
+어제 고마웠어. 다음에 밥 한번 사줄게 자세히 보기: https://www.naver.com/eshv,정상
+삼촌 사진 잘 받았어요. 건강 조심하세요,정상
+아빠 지금 통화 안돼서 문자로 보내. 이거 좀 확인해줘 http://qru6.duckdns.org,스미싱
+[모바일 청첩장] 임지은 결혼합니다. 초대장 확인 ㅁㅁ링크,스미싱
+"[Web발신]
+[새마을금고] 저금리 대환대출 최대 12,900원 한도확인 가능합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1666-7097",스미싱
+누나 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게,정상
+"[Web발신]
+[쿠팡] 송장번호 오류로 배송 지연. 정보 수정 바랍니다 ㅁㅁ링크",스미싱
+[학원] 최수진 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+안녕하세요 CJ대한통운 한상철입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+안녕하세요 로젠택배 임지은입니다. 부재중이라 경비실에 맡겨두었습니다. 자세히 보기: https://www.naver.com/dsu8,정상
+"[Web발신]
+[롯데카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[서울시청] 국민연금 미환급금 조회 대상자입니다. 확인 http://kr-k2sr.top",스미싱
+"[Web발신]
+[기업은행] 대출 심사 결과 안내드립니다. 결과 확인 http://han.gl/qdff",스미싱
+"[Web발신]
+[우리은행] 대출 심사 결과 안내드립니다. 결과 확인 ㅁㅁ링크",스미싱
+"[KT] 이번 달 요금은 356,000원입니다. 자세한 내역은 고객센터 070-3440-5614",정상
+[아파트관리사무소] 단수 안내: 6/28 10:45부터 2시간 단수 예정입니다.,정상
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://vo.la/eefn",스미싱
+"[Web발신]
+[CU편의점택배] 배송지 미확인 상품 반송 예정입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1588-0216",스미싱
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 http://xn--nxwd5.xyz",스미싱
+"[Web발신]
+[카카오뱅크] 고객님 계좌에서 48,700원 이체 시도가 감지되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[긴급] 미사용 포인트 89,000점 오늘 소멸됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[11번가] 주문하신 상품이 결제 처리되었습니다. 취소 ㅁㅁ링크",스미싱
+어제 고마웠어. 다음에 밥 한번 사줄게 자세히 보기: https://www.naver.com/ua4y,정상
+[우체국택배] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다.,정상
+[롯데택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 임지은 070-6956-7902,정상
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 ㅁㅁ링크",스미싱
+형 약 잘 챙겨 드시고 계세요. 주말에 갈게요,정상
+[헬스장] 회원권이 5/17에 만료됩니다. 데스크로 문의 주세요.,정상
+[롯데택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 1666-5073,정상
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 ㅁㅁ링크",스미싱
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 hxxp://bit.ly/dy5ha,스미싱
+안녕하세요 우체국택배 조은주입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+"[Web발신]
+앱 정기결제 128,000원 자동 갱신 예정입니다. 해지 http://susa.duckdns.org",스미싱
+[국제우편] 통관보류 물품 안내드립니다. 미확인시 폐기 처리 http://wd7r.duckdns.org,스미싱
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://me2.kr/u84f",스미싱
+"[SKT] 이번 달 요금은 1,250,000원입니다. 자세한 내역은 고객센터 010-9915-3798 앱에서 확인: https://www.naver.com/62np",정상
+[행정안전부] 주민세 납부 기한은 5/17까지입니다. 문의는 070-7387-3937,정상
+"[Web발신]
+새마을금고 예금 만기 안내. 자세한 내용은 영업점 또는 1666-0062",정상
+"[Web발신]
+앱 정기결제 1,250,000원 자동 갱신 예정입니다. 해지 http://gyu8.duckdns.org",스미싱
+"[Web발신]
+[한진택배] 송장번호 오류로 배송 지연. 정보 수정 바랍니다 http://zczg.duckdns.org",스미싱
+"[SKT] 이번 달 요금은 89,000원입니다. 자세한 내역은 고객센터 010-2406-9007",정상
+어제 고마웠어. 다음에 밥 한번 사줄게 앱에서 확인: https://www.naver.com/m22q,정상
+안녕하세요 롯데택배 한상철입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+"[Web발신]
+[기업은행] 저금리 대환대출 최대 770,000원 한도확인 가능합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+농협은행 입금 356,000원
+잔액 128,000원
+11/02 15:07",정상
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 hxxp://bit.ly/gbpx6",스미싱
+"[Web발신]
+해외 직구 12,900원 결제 승인 안내. 취소 문의 070-1626-4199",스미싱
+서울내과의원입니다. 내일 15:07 예약 확인 전화드렸는데 부재중이셨습니다. 010-6425-4785,정상
+안녕하세요 우체국택배 임지은입니다. 부재중이라 경비실에 맡겨두었습니다. 자세히 보기: https://www.naver.com/trem,정상
+"[Web발신]
+[행정안전부] 소상공인 재난지원금 지급 대상 안내 http://kr-6mbv.top",스미싱
+"[Web발신]
+기업은행 예금 만기 안내. 자세한 내용은 영업점 또는 070-5512-1420 앱에서 확인: https://www.naver.com/scfq",정상
+장 보러 가는데 뭐 필요한 거 있어? 앱에서 확인: https://www.naver.com/qzb9,정상
+"[Web발신]
+[11번가] 128,000원 결제가 완료되었습니다. 본인 아니면 1588-4924",스미싱
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 http://han.gl/jnta",스미싱
+"[Web발신]
+[경찰청] 종합소득세 환급금 770,000원이 미수령 상태입니다. 신청 http://kr-q88p.top",스미싱
+"[Web발신]
+[긴급] 미사용 포인트 770,000점 오늘 소멸됩니다 http://han.gl/7adg",스미싱
+엄마 나 폰 고장나서 컴퓨터로 문자해. 급하게 필요한거 있어서 http://vo.la/sd5y,스미싱
+[11번가] 주문번호 확인 결과 정상 배송 중입니다. 문의 010-7531-5884,정상
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://kr-ay3z.top",스미싱
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 ㅁㅁ링크",스미싱
+"[Web발신]
+카카오뱅크 예금 만기 안내. 자세한 내용은 영업점 또는 010-9659-5996",정상
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://kr-s9ca.top",스미싱
+"[Web발신]
+앱 업데이트공개 필요. 미업데이트시 서비스 중단됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[국세청] 건강검진 미수검자 안내. 대상자 조회 ㅁㅁ링크",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1666-3966",스미싱
+[미용실] 예약 4/09 10:45 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+아빠 사진 잘 받았어요. 건강 조심하세요,정상
+"[Web발신]
+축하합니다! 신세계몰 경품 이벤트에 당첨되셨습니다 http://kymd.duckdns.org",스미싱
+"[Web발신]
+축하합니다! 롯데마트 경품 이벤트에 당첨되셨습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://6628.duckdns.org",스미싱
+언니 사진 잘 받았어요. 건강 조심하세요,정상
+[서울시청] 주민세 납부 기한은 8/14까지입니다. 문의는 1666-2534 자세히 보기: https://www.naver.com/xba3,정상
+"[Web발신]
+[롯데마트] 주문하신 상품이 결제 처리되었습니다. 취소 http://kr-kn8f.top",스미싱
+[햇살초등학교] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다.,정상
+김민수 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+[아파트관리사무소] 정기 소방점검이 1/12에 있습니다. 협조 부탁드립니다.,정상
+"[Web발신]
+국민은행 출금 128,000원
+7/05 09:12 자동이체",정상
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 http://dvrj.duckdns.org",스미싱
+우리정형외과입니다. 내일 17:33 예약 확인 전화드렸는데 부재중이셨습니다. 1588-5152,정상
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://ed8e.duckdns.org",스미싱
+"[Web발신]
+[질병관리청] 종합소득세 환급금 2,480,000원이 미수령 상태입니다. 신청 http://han.gl/vqg6",스미싱
+"[Web발신]
+[카카오뱅크] 고객님 계좌에서 770,000원 이체 시도가 감지되었습니다 http://me2.kr/macn",스미싱
+최수진아 생일 축하해! 좋은 하루 보내 앱에서 확인: https://www.naver.com/yz5v,정상
+한상철아 생일 축하해! 좋은 하루 보내,정상
+"[Web발신]
+고객님 포인트 소멸 예정입니다. 무료 전환 신청 ㅁㅁ링크",스미싱
+"[Web발신]
+[한진택배] 주소불일치로 물품 배송이 보류되었습니다. 주소 확인 hxxp://bit.ly/gwgpj",스미싱
+"[Web발신]
+해외 직구 770,000원 결제 승인 안내. 취소 문의 02-4932-3810",스미싱
+[헬스장] 회원권이 9/23에 만료됩니다. 데스크로 문의 주세요.,정상
+"[Web발신]
+현대카드 10/11 청구금액 89,000원 안내드립니다. 문의 1588-8425",정상
+"[Web발신]
+[11번가] 2,480,000원 결제가 완료되었습니다. 본인 아니면 070-2110-9194",스미싱
+"[Web발신]
+[국민은행] 비정상 로그인 감지. 계정 정지 예정입니다 ㅁㅁ링크",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 hxxp://bit.ly/hv67g",스미싱
+"[SKT] 이번 달 요금은 770,000원입니다. 자세한 내역은 고객센터 02-0173-9028",정상
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 http://xn--vp5c8.xyz",스미싱
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 http://vo.la/e2wc",스미싱
+윤성호 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+[모바일 청첩장] 강미경 결혼합니다. 초대장 확인 http://me2.kr/9u27,스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 hxxp://bit.ly/hq9x6",스미싱
+"[Web발신]
+기업은행 출금 770,000원
+8/14 19:48 자동이체",정상
+"[Web발신]
+[신한은행] 고객님 계좌에서 48,700원 이체 시도가 감지되었습니다 http://kr-ezbe.top",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://han.gl/th9s",스미싱
+엄마 나 폰 고장나서 컴퓨터로 문자해. 급하게 필요한거 있어서 http://me2.kr/ybwq,스미싱
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://vo.la/3p5s",스미싱
+[쿠팡] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다. 자세히 보기: https://www.naver.com/x4wx,정상
+"[Web발신]
+신한은행 입금 35,000원
+잔액 2,480,000원
+3/21 21:15",정상
+[SKT] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다.,정상
+[쿠팡] 주문번호 확인 결과 정상 배송 중입니다. 문의 1666-6078,정상
+[주민센터] 신청하신 서류 발급이 완료되었습니다. 방문 수령 바랍니다. 자세히 보기: https://www.naver.com/r8w2,정상
+"[Web발신]
+[로젠택배] 송장번호 오류로 배송 지연. 정보 수정 바랍니다 http://xn--wzdnc.xyz",스미싱
+[부고] 삼가 고인의 명복을 빕니다. 부고장 http://kr-m973.top,스미싱
+"BC카드 카드 이용대금 1,250,000원이 정상 출금되었습니다.",정상
+할머니 약 잘 챙겨 드시고 계세요. 주말에 갈게요,정상
+[푸른어린이집] 급식 식단표를 가정통신문으로 배부하였습니다. 앱에서 확인: https://www.naver.com/f7dt,정상
+형 약 잘 챙겨 드시고 계세요. 주말에 갈게요 자세히 보기: https://www.naver.com/3utr,정상
+어제 고마웠어. 다음에 밥 한번 사줄게 앱에서 확인: https://www.naver.com/f3vr,정상
+"[Web발신]
+[국민연금공단] 미납 과태료 128,000원 최종 안내. 미납시 재산압류 http://vo.la/djcj",스미싱
+"[Web발신]
+[새마을금고] 고객님 신용등급 상승으로 추가한도 승인되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+하나은행 입금 2,480,000원
+잔액 2,480,000원
+4/09 15:07 자세히 보기: https://www.naver.com/ctrf",정상
+"[Web발신]
+[국민은행] 비정상 로그인 감지. 계정 정지 예정입니다 http://han.gl/myts",스미싱
+[모바일 청첩장] 윤성호 결혼합니다. 초대장 확인 hxxp://bit.ly/rfshr,스미싱
+미소안과 예약 안내: 3/21 10:45. 변경은 02-2305-7962로 연락 주세요.,정상
+[모바일 청첩장] 이영희 결혼합니다. 초대장 확인 ㅁㅁ링크,스미싱
+"[Web발신]
+해외 직구 89,000원 결제 승인 안내. 취소 문의 02-8500-7737",스미싱
+[국민연금공단] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 010-3518-5985 자세히 보기: https://www.naver.com/wpv6,정상
+[CJ대한통운] 고객님의 상품이 오늘 도착 예정입니다. 기사 박정호 02-3103-6498,정상
+"[Web발신]
+앱 업데이트공개 필요. 미업데이트시 서비스 중단됩니다 http://vo.la/c8yg",스미싱
+"[Web발신]
+[국세청] 국민연금 미환급금 조회 대상자입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1588-0495",스미싱
+연세이비인후과 예약 안내: 7/05 13:20. 변경은 1666-0789로 연락 주세요.,정상
+행복치과 예약 안내: 12/19 19:48. 변경은 02-0303-6698로 연락 주세요.,정상
+"[Web발신]
+[이벤트] 무료 상품권 128,000원 선착순 지급중. 지금 신청 hxxp://bit.ly/m9tr5",스미싱
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 hxxp://bit.ly/29cx2,스미싱
+"[Web발신]
+BC카드 6/28 청구금액 356,000원 안내드립니다. 문의 010-9021-9628 자세히 보기: https://www.naver.com/3gjm",정상
+연세이비인후과입니다. 내일 19:48 예약 확인 전화드렸는데 부재중이셨습니다. 010-5751-9347,정상
+"[Web발신]
+하나은행 출금 128,000원
+5/17 09:12 자동이체",정상
+[롯데마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 070-0813-7378,정상
+안녕하세요 롯데택배 조은주입니다. 부재중이라 경비실에 맡겨두었습니다. 앱에서 확인: https://www.naver.com/86mp,정상
+[세탁소] 맡기신 옷 세탁 완료되었습니다. 편하실 때 찾아가세요. 자세히 보기: https://www.naver.com/7h7w,정상
+[우체국택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 1588-3364,정상
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1666-8839",스미싱
+[한빛고등학교] 급식 식단표를 가정통신문으로 배부하였습니다.,정상
+[한빛고등학교] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다. 자세히 보기: https://www.naver.com/yc4j,정상
+"[알뜰폰] 이번 달 요금은 35,000원입니다. 자세한 내역은 고객센터 070-8280-4019",정상
+"[Web발신]
+[하나은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 http://han.gl/9hr7",스미싱
+"[Web발신]
+[이벤트] 무료 상품권 35,000원 선착순 지급중. 지금 신청 http://js5n.duckdns.org",스미싱
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 hxxp://bit.ly/aqkq4",스미싱
+"[Web발신]
+[경찰청] 미납 과태료 770,000원 최종 안내. 미납시 재산압류 hxxp://bit.ly/y9b67",스미싱
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://han.gl/6zxy",스미싱
+"[Web발신]
+축하합니다! 신세계몰 경품 이벤트에 당첨되셨습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[서울시청] 소상공인 재난지원금 지급 대상 안내 hxxp://bit.ly/curmq",스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://han.gl/m7z5",스미싱
+"[Web발신]
+신한은행 체크카드 승인 89,000원 11번가 17:33",정상
+"[Web발신]
+[기업은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 ㅁㅁ링크",스미싱
+[아파트관리사무소] 단수 안내: 12/19 10:45부터 2시간 단수 예정입니다.,정상
+[세탁소] 맡기신 옷 세탁 완료되었습니다. 편하실 때 찾아가세요. 앱에서 확인: https://www.naver.com/vetf,정상
+"[Web발신]
+농협은행 예금 만기 안내. 자세한 내용은 영업점 또는 1666-7668",정상
+"[Web발신]
+[우리은행] 고객님 계좌에서 770,000원 이체 시도가 감지되었습니다 http://phs5.duckdns.org",스미싱
+"[SKT] 이번 달 요금은 12,900원입니다. 자세한 내역은 고객센터 02-0384-5036 앱에서 확인: https://www.naver.com/tu2d",정상
+"[Web발신]
+[서울시청] 종합소득세 환급금 89,000원이 미수령 상태입니다. 신청 http://vo.la/hkd6",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 http://366n.duckdns.org",스미싱
+동생 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게 앱에서 확인: https://www.naver.com/99mg,정상
+"[Web발신]
+[기업은행] 저금리 대환대출 최대 35,000원 한도확인 가능합니다 ㅁㅁ링크",스미싱
+[미용실] 예약 7/05 22:40 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://kr-qpv7.top,스미싱
+이모 약 잘 챙겨 드시고 계세요. 주말에 갈게요,정상
+미소안과 예약 안내: 1/12 10:45. 변경은 1588-9933로 연락 주세요.,정상
+안녕하세요 로젠택배 임지은입니다. 부재중이라 경비실에 맡겨두었습니다.,정상
+미소안과입니다. 내일 17:33 예약 확인 전화드렸는데 부재중이셨습니다. 070-6645-2686,정상
+조은주님 내일 회의 15:07으로 변경되었습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1588-5456",스미싱
+"[Web발신]
+[새마을금고] 대출 심사 결과 안내드립니다. 결과 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[알림] 미납 통신요금 356,000원 정지 예정 안내 http://kr-d6yf.top",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 010-3961-3605",스미싱
+"[Web발신]
+[백화점] 89,000원 결제가 완료되었습니다. 본인 아니면 02-2815-9548",스미싱
+"[Web발신]
+기업은행 출금 12,900원
+2/03 22:40 자동이체",정상
+[아파트관리사무소] 정기 소방점검이 11/02에 있습니다. 협조 부탁드립니다. 자세히 보기: https://www.naver.com/78v6,정상
+[주민센터] 신청하신 서류 발급이 완료되었습니다. 방문 수령 바랍니다. 자세히 보기: https://www.naver.com/3ptf,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1588-7883",스미싱
+"[Web발신]
+카카오뱅크 체크카드 승인 12,900원 쿠팡 15:07",정상
+롯데마트 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요.,정상
+"[Web발신]
+[알림] 미납 통신요금 89,000원 정지 예정 안내 ㅁㅁ링크",스미싱
+"[Web발신]
+[농협은행] 저금리 대환대출 최대 356,000원 한도확인 가능합니다 http://kr-z3f3.top",스미싱
+"[Web발신]
+[투자] 종목 무료 추천방 오픈. 수익률 182% 실화입니다 http://me2.kr/fxxj",스미싱
+이번 주말에 시간 괜찮아? 얼굴 한번 보자 앱에서 확인: https://www.naver.com/k2pd,정상
+[미용실] 예약 5/17 13:20 확인되었습니다. 늦지 않게 방문 부탁드려요. 앱에서 확인: https://www.naver.com/mwkt,정상
+"[LG U+] 이번 달 요금은 12,900원입니다. 자세한 내역은 고객센터 1588-5975",정상
+"[Web발신]
+[이벤트] 무료 상품권 128,000원 선착순 지급중. 지금 신청 ㅁㅁ링크",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 1588-6506",스미싱
+임지은 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요.,정상
+[건강보험공단] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 1588-1116,정상
+"[Web발신]
+[쿠팡] 배송지 미확인 상품 반송 예정입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://kr-73a3.top",스미싱
+"[Web발신]
+[카카오뱅크] 고객님 신용등급 상승으로 추가한도 승인되었습니다 http://me2.kr/ncru",스미싱
+이마트 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요. 앱에서 확인: https://www.naver.com/4raq,정상
+"[Web발신]
+[경찰청] 소상공인 재난지원금 지급 대상 안내 ㅁㅁ링크",스미싱
+"[Web발신]
+[관세청] 소상공인 재난지원금 지급 대상 안내 http://me2.kr/f5e6",스미싱
+"[Web발신]
+고객님 포인트 소멸 예정입니다. 무료 전환 신청 http://kr-rg5t.top",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://xn--pd42v.xyz",스미싱
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://vo.la/2vzy,스미싱
+"[Web발신]
+해외 직구 89,000원 결제 승인 안내. 취소 문의 010-2274-1930",스미싱
+우리정형외과 예약 안내: 10/11 13:20. 변경은 02-0917-1473로 연락 주세요.,정상
+이마트 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요. 자세히 보기: https://www.naver.com/nf4g,정상
+"[Web발신]
+축하합니다! 11번가 경품 이벤트에 당첨되셨습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+롯데마트 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 http://me2.kr/gtbc",스미싱
+[아파트관리사무소] 단수 안내: 8/14 22:40부터 2시간 단수 예정입니다.,정상
+안녕하세요 우체국택배 강미경입니다. 부재중이라 경비실에 맡겨두었습니다. 자세히 보기: https://www.naver.com/bnuy,정상
+안녕하세요 CJ대한통운 임지은입니다. 부재중이라 경비실에 맡겨두었습니다. 자세히 보기: https://www.naver.com/que2,정상
+비 온대. 우산 챙겨서 나가,정상
+"[Web발신]
+롯데카드 승인 정*현
+770,000원 일시불
+11/02 13:20
+G마켓 앱에서 확인: https://www.naver.com/xgge",정상
+"[Web발신]
+[롯데카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 http://vo.la/g5ud",스미싱
+"[Web발신]
+[농협은행] 고객님 계좌에서 1,250,000원 이체 시도가 감지되었습니다 http://kr-fq32.top",스미싱
+"[Web발신]
+우리은행 출금 12,900원
+6/28 10:45 자동이체 자세히 보기: https://www.naver.com/5ud3",정상
+"[Web발신]
+[긴급] 미사용 포인트 770,000점 오늘 소멸됩니다 http://me2.kr/44tq",스미싱
+[미용실] 예약 9/23 09:12 확인되었습니다. 늦지 않게 방문 부탁드려요. 자세히 보기: https://www.naver.com/8vv7,정상
+"[Web발신]
+[알림] 미납 통신요금 35,000원 정지 예정 안내 http://xn--zmrd9.xyz",스미싱
+[질병관리청] 주민세 납부 기한은 3/21까지입니다. 문의는 070-1420-1141,정상
+미소안과입니다. 처방하신 약 준비되었습니다. 방문해 주세요. 자세히 보기: https://www.naver.com/dbxd,정상
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://vo.la/6wq3",스미싱
+"[Web발신]
+국민은행 입금 128,000원
+잔액 48,700원
+12/19 15:07",정상
+[행정안전부] 주민세 납부 기한은 2/03까지입니다. 문의는 010-9882-8212,정상
+[헬스장] 회원권이 10/11에 만료됩니다. 데스크로 문의 주세요.,정상
+"[Web발신]
+[질병관리청] 국민연금 미환급금 조회 대상자입니다. 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[삼성카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 hxxp://bit.ly/zpeuh",스미싱
+정대현 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요. 자세히 보기: https://www.naver.com/vup9,정상
+[세탁소] 맡기신 옷 세탁 완료되었습니다. 편하실 때 찾아가세요.,정상
+"[Web발신]
+롯데마트 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 http://me2.kr/37x8",스미싱
+[서울시청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 1666-5260 자세히 보기: https://www.naver.com/fmn8,정상
+우리정형외과입니다. 처방하신 약 준비되었습니다. 방문해 주세요.,정상
+[햇살초등학교] 학부모 상담 주간 안내드립니다. 신청서를 보내드렸습니다.,정상
+"[Web발신]
+[건강보험공단] 건강검진 미수검자 안내. 대상자 조회 ㅁㅁ링크",스미싱
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://vo.la/89pp",스미싱
+"[Web발신]
+앱 정기결제 770,000원 자동 갱신 예정입니다. 해지 ㅁㅁ링크",스미싱
+"[Web발신]
+기업은행 예금 만기 안내. 자세한 내용은 영업점 또는 02-6800-6879",정상
+한마음병원입니다. 처방하신 약 준비되었습니다. 방문해 주세요. 앱에서 확인: https://www.naver.com/kp7k,정상
+"[Web발신]
+축하합니다! 신세계몰 경품 이벤트에 당첨되셨습니다 http://vo.la/6fnb",스미싱
+"[Web발신]
+[국민카드] 해외결제 48,700원 승인. 본인 아닐시 즉시 문의 ㅁㅁ링크",스미싱
+"[Web발신]
+[삼성카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 http://han.gl/3ng5",스미싱
+[한진택배] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다. 자세히 보기: https://www.naver.com/s943,정상
+서울내과의원 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다. 자세히 보기: https://www.naver.com/p3vd,정상
+[아파트관리사무소] 정기 소방점검이 6/28에 있습니다. 협조 부탁드립니다. 자세히 보기: https://www.naver.com/jznb,정상
+오늘 회식 21:15에 시작합니다. 장소는 사무실 앞에서 모입니다.,정상
+[모바일 청첩장] 윤성호 결혼합니다. 초대장 확인 ㅁㅁ링크,스미싱
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://xn--p8kzh.xyz",스미싱
+나 지금 출발했어. 21:15쯤 도착할 것 같아,정상
+"[Web발신]
+해외 직구 89,000원 결제 승인 안내. 취소 문의 02-9160-3883",스미싱
+우리정형외과입니다. 내일 10:45 예약 확인 전화드렸는데 부재중이셨습니다. 070-8360-1559,정상
+[관세청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다. 자세히 보기: https://www.naver.com/eq69,정상
+"[Web발신]
+[신한은행] 고객님 계좌에서 356,000원 이체 시도가 감지되었습니다 http://me2.kr/xuhe",스미싱
+"[Web발신]
+귀하의 명의로 휴대폰이 개통되었습니다. 신고 http://kr-6v24.top",스미싱
+미소안과입니다. 내일 19:48 예약 확인 전화드렸는데 부재중이셨습니다. 1666-6603 앱에서 확인: https://www.naver.com/uxxs,정상
+[질병관리청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 070-5121-6254,정상
+"[Web발신]
+[CU편의점택배] 배송지 미확인 상품 반송 예정입니다. 확인 http://xn--69jww.xyz",스미싱
+박정호 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요. 자세히 보기: https://www.naver.com/6p36,정상
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1588-6882",스미싱
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 hxxp://bit.ly/5da4r",스미싱
+"[Web발신]
+귀하의 명의로 휴대폰이 개통되었습니다. 신고 http://kr-wtdw.top",스미싱
+삼촌 약 잘 챙겨 드시고 계세요. 주말에 갈게요 앱에서 확인: https://www.naver.com/gkad,정상
+안녕하세요 한진택배 김민수입니다. 부재중이라 경비실에 맡겨두었습니다. 앱에서 확인: https://www.naver.com/qn6r,정상
+"[Web발신]
+BC카드 7/05 청구금액 1,250,000원 안내드립니다. 문의 1588-9460",정상
+[G마켓] 주문번호 확인 결과 정상 배송 중입니다. 문의 1588-9672,정상
+"[Web발신]
+[국민카드] 해외결제 35,000원 승인. 본인 아닐시 즉시 문의 ㅁㅁ링크",스미싱
+미소안과입니다. 처방하신 약 준비되었습니다. 방문해 주세요. 자세히 보기: https://www.naver.com/hbd7,정상
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 http://cwp6.duckdns.org",스미싱
+"[Web발신]
+[신한은행] 비정상 로그인 감지. 계정 정지 예정입니다 http://vo.la/52ma",스미싱
+"[Web발신]
+카카오뱅크 출금 2,480,000원
+5/17 10:45 자동이체",정상
+우리정형외과입니다. 내일 17:33 예약 확인 전화드렸는데 부재중이셨습니다. 1588-4843,정상
+"[Web발신]
+[행정안전부] 건강검진 미수검자 안내. 대상자 조회 http://vo.la/48ms",스미싱
+"[Web발신]
+[CJ대한통운] 배송지 미확인 상품 반송 예정입니다. 확인 http://89st.duckdns.org",스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://aava.duckdns.org",스미싱
+"[Web발신]
+하나은행 체크카드 승인 2,480,000원 이마트 15:07",정상
+나 지금 출발했어. 22:40쯤 도착할 것 같아 앱에서 확인: https://www.naver.com/rqxs,정상
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 http://han.gl/572u",스미싱
+[국세청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 010-5145-0046,정상
+[KT] 데이터 사용량이 80%를 초과했습니다. 남은 기간 확인하세요.,정상
+정대현 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요. 앱에서 확인: https://www.naver.com/d2e6,정상
+"[Web발신]
+백화점 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 ㅁㅁ링크",스미싱
+이영희아 생일 축하해! 좋은 하루 보내 앱에서 확인: https://www.naver.com/efny,정상
+"[Web발신]
+[국민연금공단] 소상공인 재난지원금 지급 대상 안내 ㅁㅁ링크",스미싱
+"[Web발신]
+[BC카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 ㅁㅁ링크",스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://xn--kuk7w.xyz",스미싱
+"[Web발신]
+[행정안전부] 국민연금 미환급금 조회 대상자입니다. 확인 http://xn--we4xc.xyz",스미싱
+"[Web발신]
+[알림] 미납 통신요금 89,000원 정지 예정 안내 http://me2.kr/dk64",스미싱
+[이마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 070-3013-8294,정상
+"[Web발신]
+삼성카드 1/12 청구금액 12,900원 안내드립니다. 문의 010-9656-2178 자세히 보기: https://www.naver.com/sm8c",정상
+"[Web발신]
+하나은행 출금 356,000원
+6/28 19:48 자동이체",정상
+조은주아 생일 축하해! 좋은 하루 보내,정상
+"[Web발신]
+우리은행 체크카드 승인 89,000원 G마켓 15:07 앱에서 확인: https://www.naver.com/9wsy",정상
+아빠 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게 앱에서 확인: https://www.naver.com/k9ms,정상
+윤성호님 내일 회의 09:12으로 변경되었습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+앱 업데이트공개 필요. 미업데이트시 서비스 중단됩니다 http://han.gl/m3m5",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 010-6557-4731",스미싱
+"[Web발신]
+[알림] 미납 통신요금 48,700원 정지 예정 안내 ㅁㅁ링크",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 02-4433-5574",스미싱
+[새싹유치원] 학부모 상담 주간 안내드립니다. 신청서를 보내드렸습니다.,정상
+"[Web발신]
+농협은행 예금 만기 안내. 자세한 내용은 영업점 또는 02-3361-4195 앱에서 확인: https://www.naver.com/53da",정상
+[학원] 이영희 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+[건강보험공단] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다. 앱에서 확인: https://www.naver.com/26yu,정상
+"[Web발신]
+앱 업데이트공개 필요. 미업데이트시 서비스 중단됩니다 http://han.gl/2hke",스미싱
+[CU편의점택배] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+카카오뱅크 예금 만기 안내. 자세한 내용은 영업점 또는 1588-6998",정상
+아빠 지금 통화 안돼서 문자로 보내. 이거 좀 확인해줘 http://kr-zbek.top,스미싱
+서울내과의원 예약 안내: 12/19 17:33. 변경은 02-8660-1243로 연락 주세요.,정상
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://3bck.duckdns.org",스미싱
+[한진택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다. 자세히 보기: https://www.naver.com/sec2,정상
+"[Web발신]
+[국민연금공단] 정부지원금 신청 대상자로 선정되셨습니다. 신청기한 오늘까지 ㅁㅁ링크",스미싱
+[쿠팡] 주문번호 확인 결과 정상 배송 중입니다. 문의 010-5090-9766,정상
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://vo.la/gf2a",스미싱
+[롯데택배] 상품을 문 앞에 두고 갔습니다. 확인 부탁드립니다.,정상
+[새싹유치원] 급식 식단표를 가정통신문으로 배부하였습니다.,정상
+"[Web발신]
+[국민연금공단] 건강검진 미수검자 안내. 대상자 조회 ㅁㅁ링크",스미싱
+"[Web발신]
+국민은행 입금 2,480,000원
+잔액 89,000원
+11/02 17:33 자세히 보기: https://www.naver.com/2tbg",정상
+"[Web발신]
+귀하의 명의로 휴대폰이 개통되었습니다. 신고 http://vo.la/vfce",스미싱
+[푸른어린이집] 학부모 상담 주간 안내드립니다. 신청서를 보내드렸습니다. 자세히 보기: https://www.naver.com/xc2r,정상
+[헬스장] 회원권이 5/17에 만료됩니다. 데스크로 문의 주세요. 자세히 보기: https://www.naver.com/t45w,정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 ㅁㅁ링크,스미싱
+"[Web발신]
+카카오뱅크 출금 356,000원
+3/21 22:40 자동이체 앱에서 확인: https://www.naver.com/hhj8",정상
+[경찰청] 주민세 납부 기한은 3/21까지입니다. 문의는 070-8417-6200 앱에서 확인: https://www.naver.com/brkn,정상
+"[Web발신]
+농협은행 입금 128,000원
+잔액 356,000원
+11/02 10:45",정상
+이마트 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요.,정상
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://han.gl/xmxb",스미싱
+[한진택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 1666-7406,정상
+"[Web발신]
+카카오뱅크 입금 128,000원
+잔액 770,000원
+9/23 09:12 자세히 보기: https://www.naver.com/2ygk",정상
+[도서관] 대출하신 도서 반납일이 7/05입니다.,정상
+[아파트관리사무소] 단수 안내: 3/21 21:15부터 2시간 단수 예정입니다.,정상
+"[Web발신]
+롯데마트 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 hxxp://bit.ly/xwcsc",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 hxxp://bit.ly/gtnhs",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://me2.kr/j6ue",스미싱
+"[Web발신]
+새마을금고 예금 만기 안내. 자세한 내용은 영업점 또는 1588-7917 자세히 보기: https://www.naver.com/93sy",정상
+"[Web발신]
+우리은행 체크카드 승인 89,000원 이마트 22:40 자세히 보기: https://www.naver.com/j26s",정상
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 02-7987-0920",스미싱
+"[Web발신]
+[국민연금공단] 종합소득세 환급금 1,250,000원이 미수령 상태입니다. 신청 http://xn--egp4z.xyz",스미싱
+"[Web발신]
+새마을금고 체크카드 승인 770,000원 롯데마트 09:12",정상
+"[Web발신]
+[로젠택배] 주소불일치로 물품 배송이 보류되었습니다. 주소 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[백화점] 주문하신 상품이 결제 처리되었습니다. 취소 http://han.gl/sk92",스미싱
+롯데마트 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요. 자세히 보기: https://www.naver.com/ps22,정상
+"[Web발신]
+우리은행 입금 2,480,000원
+잔액 2,480,000원
+9/23 09:12",정상
+"[Web발신]
+앱 업데이트공개 필요. 미업데이트시 서비스 중단됩니다 http://han.gl/es59",스미싱
+서울내과의원 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다.,정상
+[학원] 정대현 학생 오늘 결석했습니다. 확인 부탁드립니다. 자세히 보기: https://www.naver.com/astk,정상
+"[Web발신]
+롯데카드 승인 김*수
+356,000원 일시불
+12/19 15:07
+쿠팡",정상
+"[Web발신]
+하나은행 출금 2,480,000원
+10/11 19:48 자동이체",정상
+[국민연금공단] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다.,정상
+[경찰청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 02-7387-5163,정상
+어제 고마웠어. 다음에 밥 한번 사줄게 앱에서 확인: https://www.naver.com/qdvf,정상
+[도서관] 대출하신 도서 반납일이 8/14입니다. 자세히 보기: https://www.naver.com/2ak9,정상
+"[Web발신]
+[G마켓] 770,000원 결제가 완료되었습니다. 본인 아니면 1588-8185",스미싱
+"[Web발신]
+[투자] 종목 무료 추천방 오픈. 수익률 182% 실화입니다 hxxp://bit.ly/c3jww",스미싱
+"[Web발신]
+해외 직구 89,000원 결제 승인 안내. 취소 문의 010-1196-0972",스미싱
+한마음병원입니다. 내일 17:33 예약 확인 전화드렸는데 부재중이셨습니다. 1666-4883 앱에서 확인: https://www.naver.com/w23e,정상
+[이마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 070-3269-0022,정상
+[우체국택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 임지은 02-3628-4041 앱에서 확인: https://www.naver.com/yvvz,정상
+[모바일 청첩장] 이영희 결혼합니다. 초대장 확인 http://han.gl/hdzy,스미싱
+"[Web발신]
+[알림] 미납 통신요금 1,250,000원 정지 예정 안내 http://han.gl/c7qx",스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://kr-k5az.top",스미싱
+[부고] 삼가 고인의 명복을 빕니다. 부고장 http://tyfd.duckdns.org,스미싱
+"[Web발신]
+[질병관리청] 정부지원금 신청 대상자로 선정되셨습니다. 신청기한 오늘까지 http://me2.kr/2ndv",스미싱
+[부고] 삼가 고인의 명복을 빕니다. 부고장 ㅁㅁ링크,스미싱
+"[Web발신]
+[건강보험공단] 종합소득세 환급금 89,000원이 미수령 상태입니다. 신청 ㅁㅁ링크",스미싱
+[이마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 02-5372-2352,정상
+[이마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 1666-4624,정상
+"[Web발신]
+[긴급] 미사용 포인트 356,000점 오늘 소멸됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+우리은행 출금 48,700원
+6/28 21:15 자동이체 자세히 보기: https://www.naver.com/hp9g",정상
+"[Web발신]
+하나은행 체크카드 승인 89,000원 백화점 22:40",정상
+"[Web발신]
+[CJ대한통운] 배송지 미확인 상품 반송 예정입니다. 확인 http://me2.kr/a9wv",스미싱
+휴가 결재 승인되었습니다. 인수인계 진행해 주세요. 자세히 보기: https://www.naver.com/e7n8,정상
+"[Web발신]
+[서울시청] 재택 근무자 지원금 신청 접수중입니다 http://han.gl/g5g4",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 010-4633-3364",스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://prhm.duckdns.org",스미싱
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 02-2385-9976",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 http://vo.la/9g9b",스미싱
+"[Web발신]
+[알림] 미납 통신요금 35,000원 정지 예정 안내 http://xn--94nuk.xyz",스미싱
+미소안과입니다. 처방하신 약 준비되었습니다. 방문해 주세요.,정상
+[도서관] 대출하신 도서 반납일이 5/17입니다.,정상
+"[Web발신]
+[알림] 미납 통신요금 35,000원 정지 예정 안내 http://han.gl/xuac",스미싱
+"[Web발신]
+기업은행 체크카드 승인 12,900원 G마켓 17:33",정상
+"[SKT] 이번 달 요금은 128,000원입니다. 자세한 내역은 고객센터 1588-3846 자세히 보기: https://www.naver.com/m87g",정상
+[국제우편] 통관보류 물품 안내드립니다. 미확인시 폐기 처리 http://vo.la/xptb,스미싱
+강미경아 생일 축하해! 좋은 하루 보내 앱에서 확인: https://www.naver.com/ay3e,정상
+백화점 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요.,정상
+"[Web발신]
+재택 부업 모집. 하루 2시간 고수익 보장 http://han.gl/kjpt",스미싱
+"[Web발신]
+[신세계몰] 주문하신 상품이 결제 처리되었습니다. 취소 http://han.gl/bbyd",스미싱
+"[Web발신]
+[서울시청] 건강검진 미수검자 안내. 대상자 조회 http://vo.la/5tbu",스미싱
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://kr-xr2z.top",스미싱
+[학원] 조은주 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 02-3072-8255",스미싱
+"[Web발신]
+[건강보험공단] 미납 과태료 128,000원 최종 안내. 미납시 재산압류 http://4t3q.duckdns.org",스미싱
+[국세청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다. 자세히 보기: https://www.naver.com/aqua,정상
+행복치과 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다.,정상
+"[Web발신]
+[기업은행] 저금리 대환대출 최대 89,000원 한도확인 가능합니다 http://han.gl/xf5m",스미싱
+"[Web발신]
+[우체국택배] 배송지 미확인 상품 반송 예정입니다. 확인 http://kr-dqwm.top",스미싱
+[모바일 청첩장] 최수진 결혼합니다. 초대장 확인 http://han.gl/aeuu,스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 hxxp://bit.ly/r3486",스미싱
+[CU편의점택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 1666-5816,정상
+"[Web발신]
+[신세계몰] 주문하신 상품이 결제 처리되었습니다. 취소 http://me2.kr/dv7x",스미싱
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://xn--nndqa.xyz",스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://xn--quksb.xyz",스미싱
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 hxxp://bit.ly/wpepp",스미싱
+[G마켓] 주문번호 확인 결과 정상 배송 중입니다. 문의 02-3004-6176 앱에서 확인: https://www.naver.com/gy2z,정상
+"[Web발신]
+[경찰청] 미납 과태료 2,480,000원 최종 안내. 미납시 재산압류 ㅁㅁ링크",스미싱
+[롯데택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 박정호 1666-4725,정상
+[서울시청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다.,정상
+[한빛고등학교] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다. 자세히 보기: https://www.naver.com/gxdk,정상
+"[Web발신]
+단기 알바 급하게 구합니다. 일당 20만원 지급 02-0636-5572",스미싱
+"[Web발신]
+[우리은행] 대출 심사 결과 안내드립니다. 결과 확인 http://xn--azfkz.xyz",스미싱
+"[Web발신]
+[하나카드] 해외결제 356,000원 승인. 본인 아닐시 즉시 문의 http://han.gl/46kc",스미싱
+[한진택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 임지은 02-9551-5630,정상
+"[Web발신]
+[농협은행] 비정상 로그인 감지. 계정 정지 예정입니다 http://7ku8.duckdns.org",스미싱
+[푸른어린이집] 급식 식단표를 가정통신문으로 배부하였습니다.,정상
+"[Web발신]
+[긴급] 미사용 포인트 12,900점 오늘 소멸됩니다 http://kr-pqsz.top",스미싱
+"[Web발신]
+고객님 앞으로 도착한 종물물품 1건이 있습니다. 조회 http://han.gl/dj3y",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://kr-b3nm.top",스미싱
+[질병관리청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다.,정상
+[미용실] 예약 2/03 22:40 확인되었습니다. 늦지 않게 방문 부탁드려요. 앱에서 확인: https://www.naver.com/mgda,정상
+"[Web발신]
+[신한은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 http://me2.kr/umgm",스미싱
+[우체국택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다.,정상
+[모바일 청첩장] 정대현 결혼합니다. 초대장 확인 http://xn--4qqyc.xyz,스미싱
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://xn--3jq47.xyz",스미싱
+[햇살초등학교] 학부모 상담 주간 안내드립니다. 신청서를 보내드렸습니다. 앱에서 확인: https://www.naver.com/njaa,정상
+"[LG U+] 이번 달 요금은 1,250,000원입니다. 자세한 내역은 고객센터 02-6314-0523",정상
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://vo.la/vcks",스미싱
+"[Web발신]
+재택 부업 모집. 하루 2시간 고수익 보장 http://ps59.duckdns.org",스미싱
+쿠팡 주문하신 상품이 발송되었습니다. 송장번호는 앱에서 확인하세요.,정상
+장 보러 가는데 뭐 필요한 거 있어?,정상
+[중앙중학교] 현장학습 관련 동의서 제출 부탁드립니다. 앱에서 확인: https://www.naver.com/p68g,정상
+"[Web발신]
+[긴급] 미사용 포인트 35,000점 오늘 소멸됩니다 http://vo.la/yw77",스미싱
+[헬스장] 회원권이 8/14에 만료됩니다. 데스크로 문의 주세요.,정상
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://me2.kr/hq56",스미싱
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://han.gl/b7ed",스미싱
+"[Web발신]
+현대카드 승인 임*은
+128,000원 일시불
+12/19 21:15
+백화점 앱에서 확인: https://www.naver.com/cdty",정상
+[국민연금공단] 주민세 납부 기한은 10/11까지입니다. 문의는 02-2835-0377 앱에서 확인: https://www.naver.com/5rwn,정상
+"[Web발신]
+[신한은행] 고객님 계좌에서 89,000원 이체 시도가 감지되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[카카오뱅크] 고객님 계좌에서 12,900원 이체 시도가 감지되었습니다 http://vo.la/mhnq",스미싱
+"[Web발신]
+[행정안전부] 미납 과태료 35,000원 최종 안내. 미납시 재산압류 ㅁㅁ링크",스미싱
+아빠 지금 통화 안돼서 문자로 보내. 이거 좀 확인해줘 http://xn--fwxgn.xyz,스미싱
+"[Web발신]
+[국민연금공단] 종합소득세 환급금 35,000원이 미수령 상태입니다. 신청 http://kr-prj9.top",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 070-2901-7168",스미싱
+[헬스장] 회원권이 1/12에 만료됩니다. 데스크로 문의 주세요. 앱에서 확인: https://www.naver.com/5dvq,정상
+[CU편의점택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다.,정상
+"[Web발신]
+[신세계몰] 주문하신 상품이 결제 처리되었습니다. 취소 ㅁㅁ링크",스미싱
+형 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게 자세히 보기: https://www.naver.com/bg8v,정상
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 ㅁㅁ링크",스미싱
+"[Web발신]
+기업은행 출금 48,700원
+4/09 13:20 자동이체 앱에서 확인: https://www.naver.com/vmyu",정상
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 http://han.gl/4jv2",스미싱
+아빠 약 잘 챙겨 드시고 계세요. 주말에 갈게요,정상
+장 보러 가는데 뭐 필요한 거 있어? 자세히 보기: https://www.naver.com/sw4h,정상
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 hxxp://bit.ly/97ve9",스미싱
+연세이비인후과입니다. 내일 15:07 예약 확인 전화드렸는데 부재중이셨습니다. 1588-7782,정상
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 http://han.gl/64f3",스미싱
+[미용실] 예약 3/21 21:15 확인되었습니다. 늦지 않게 방문 부탁드려요. 자세히 보기: https://www.naver.com/ze7a,정상
+[국제우편] 통관보류 물품 안내드립니다. 미확인시 폐기 처리 ㅁㅁ링크,스미싱
+누나 사진 잘 받았어요. 건강 조심하세요,정상
+"[Web발신]
+[우체국택배] 주소불일치로 물품 배송이 보류되었습니다. 주소 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[현대카드] 카드 발급이 완료되었습니다. 본인 신청이 아니면 http://vo.la/rczr",스미싱
+형 약 잘 챙겨 드시고 계세요. 주말에 갈게요 앱에서 확인: https://www.naver.com/wc68,정상
+"[Web발신]
+[경찰청] 소상공인 재난지원금 지급 대상 안내 http://x6xx.duckdns.org",스미싱
+오늘 회식 22:40에 시작합니다. 장소는 사무실 앞에서 모입니다.,정상
+서울내과의원 예약 안내: 3/21 21:15. 변경은 010-3310-4750로 연락 주세요.,정상
+"[Web발신]
+현대카드 승인 한*철
+89,000원 일시불
+11/02 13:20
+G마켓",정상
+"[Web발신]
+[국세청] 미납 과태료 356,000원 최종 안내. 미납시 재산압류 ㅁㅁ링크",스미싱
+"[Web발신]
+[국민연금공단] 건강검진 미수검자 안내. 대상자 조회 http://kr-bknr.top",스미싱
+"[Web발신]
+[새마을금고] 고객님 계좌에서 48,700원 이체 시도가 감지되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[질병관리청] 재택 근무자 지원금 신청 접수중입니다 ㅁㅁ링크",스미싱
+"[Web발신]
+롯데카드 승인 박*호
+356,000원 일시불
+1/12 15:07
+쿠팡",정상
+"[Web발신]
+축하합니다! 이마트 경품 이벤트에 당첨되셨습니다 http://han.gl/ufck",스미싱
+한상철님 내일 회의 19:48으로 변경되었습니다. 확인 부탁드립니다.,정상
+[신세계몰] 주문번호 확인 결과 정상 배송 중입니다. 문의 1666-7590 자세히 보기: https://www.naver.com/nn7j,정상
+[롯데택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다.,정상
+"[Web발신]
+롯데카드 승인 조*주
+48,700원 일시불
+5/17 13:20
+G마켓",정상
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1666-7517",스미싱
+어제 고마웠어. 다음에 밥 한번 사줄게 앱에서 확인: https://www.naver.com/9pqx,정상
+[경찰청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 010-6907-0440 앱에서 확인: https://www.naver.com/y3bk,정상
+"[Web발신]
+귀하의 명의로 휴대폰이 개통되었습니다. 신고 http://vo.la/4qfs",스미싱
+"[Web발신]
+[신한카드] 결제 오류로 승인 실패. 카드정보 재등록 필요합니다 ㅁㅁ링크",스미싱
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 ㅁㅁ링크",스미싱
+[국민연금공단] 주민세 납부 기한은 7/05까지입니다. 문의는 1588-8000,정상
+"[Web발신]
+신한카드 승인 이*희
+128,000원 일시불
+8/14 17:33
+롯데마트",정상
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://xn--xn9py.xyz",스미싱
+[헬스장] 회원권이 12/19에 만료됩니다. 데스크로 문의 주세요.,정상
+"[Web발신]
+축하합니다! 롯데마트 경품 이벤트에 당첨되셨습니다 http://xn--xxdfg.xyz",스미싱
+"[Web발신]
+BC카드 3/21 청구금액 12,900원 안내드립니다. 문의 010-1267-8925",정상
+"[Web발신]
+[국세청] 소상공인 재난지원금 지급 대상 안내 ㅁㅁ링크",스미싱
+오늘 회식 19:48에 시작합니다. 장소는 사무실 앞에서 모입니다.,정상
+"삼성카드 카드 이용대금 770,000원이 정상 출금되었습니다.",정상
+나 지금 출발했어. 19:48쯤 도착할 것 같아,정상
+"[Web발신]
+[긴급] 미사용 포인트 48,700점 오늘 소멸됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+BC카드 승인 최*진
+128,000원 일시불
+4/09 21:15
+11번가",정상
+나 지금 출발했어. 22:40쯤 도착할 것 같아,정상
+나 지금 출발했어. 10:45쯤 도착할 것 같아 자세히 보기: https://www.naver.com/expt,정상
+[국민연금공단] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 02-7960-5578,정상
+"[Web발신]
+[질병관리청] 재택 근무자 지원금 신청 접수중입니다 hxxp://bit.ly/8jr5c",스미싱
+"[Web발신]
+고객님 계좌가 보이스피싱 피해 계좌로 신고되었습니다 1666-2824",스미싱
+[로젠택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 조은주 02-4603-3254,정상
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 http://han.gl/5j9r",스미싱
+서울내과의원 예약 안내: 9/23 09:12. 변경은 1588-6580로 연락 주세요.,정상
+"[Web발신]
+[G마켓] 주문하신 상품이 결제 처리되었습니다. 취소 http://kr-2h6j.top",스미싱
+"[Web발신]
+고객님 포인트 소멸 예정입니다. 무료 전환 신청 http://vo.la/9dzp",스미싱
+오늘 회식 15:07에 시작합니다. 장소는 사무실 앞에서 모입니다.,정상
+[아파트관리사무소] 정기 소방점검이 11/02에 있습니다. 협조 부탁드립니다. 자세히 보기: https://www.naver.com/yt4x,정상
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 http://me2.kr/fuaw",스미싱
+이영희아 생일 축하해! 좋은 하루 보내,정상
+"[Web발신]
+[행정안전부] 종합소득세 환급금 35,000원이 미수령 상태입니다. 신청 http://vo.la/jbhp",스미싱
+어제 고마웠어. 다음에 밥 한번 사줄게,정상
+휴가 결재 승인되었습니다. 인수인계 진행해 주세요. 앱에서 확인: https://www.naver.com/553h,정상
+월요일 출근 전에 보고서 초안 공유 부탁드립니다. 감사합니다. 자세히 보기: https://www.naver.com/d74u,정상
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://me2.kr/3g3b",스미싱
+"[Web발신]
+국민카드 승인 김*수
+1,250,000원 일시불
+5/17 15:07
+이마트 앱에서 확인: https://www.naver.com/sy72",정상
+"[Web발신]
+11번가 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 hxxp://bit.ly/kjg5e",스미싱
+"[Web발신]
+[이마트] 주문하신 상품이 결제 처리되었습니다. 취소 ㅁㅁ링크",스미싱
+[헬스장] 회원권이 3/21에 만료됩니다. 데스크로 문의 주세요.,정상
+[서울시청] 주민세 납부 기한은 8/14까지입니다. 문의는 1666-6350,정상
+"BC카드 카드 이용대금 89,000원이 정상 출금되었습니다.",정상
+"[Web발신]
+앱 업데이트공개 필요. 미업데이트시 서비스 중단됩니다 http://han.gl/25b3",스미싱
+"[Web발신]
+[신한카드] 해외결제 35,000원 승인. 본인 아닐시 즉시 문의 ㅁㅁ링크",스미싱
+[알뜰폰] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다.,정상
+"[Web발신]
+[하나은행] 비정상 로그인 감지. 계정 정지 예정입니다 http://me2.kr/v72m",스미싱
+[CU편의점택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 박정호 070-2504-3910 앱에서 확인: https://www.naver.com/6f5w,정상
+"[알뜰폰] 이번 달 요금은 1,250,000원입니다. 자세한 내역은 고객센터 070-0024-0912",정상
+이모 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게,정상
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 hxxp://bit.ly/cehe5",스미싱
+임지은님 내일 회의 13:20으로 변경되었습니다. 확인 부탁드립니다. 앱에서 확인: https://www.naver.com/guyp,정상
+한마음병원입니다. 내일 15:07 예약 확인 전화드렸는데 부재중이셨습니다. 02-7145-2340,정상
+"[Web발신]
+신한은행 출금 770,000원
+7/05 22:40 자동이체",정상
+"[Web발신]
+새마을금고 출금 356,000원
+7/05 21:15 자동이체",정상
+[질병관리청] 주민세 납부 기한은 3/21까지입니다. 문의는 010-5710-0057,정상
+"[Web발신]
+[롯데택배] 주소불일치로 물품 배송이 보류되었습니다. 주소 확인 ㅁㅁ링크",스미싱
+장 보러 가는데 뭐 필요한 거 있어? 자세히 보기: https://www.naver.com/m45g,정상
+"[Web발신]
+[로젠택배] 송장번호 오류로 배송 지연. 정보 수정 바랍니다 ㅁㅁ링크",스미싱
+오늘 회식 22:40에 시작합니다. 장소는 사무실 앞에서 모입니다. 앱에서 확인: https://www.naver.com/2n9w,정상
+"[Web발신]
+새마을금고 예금 만기 안내. 자세한 내용은 영업점 또는 070-4850-1094",정상
+"[Web발신]
+새마을금고 체크카드 승인 356,000원 롯데마트 21:15",정상
+[햇살초등학교] 현장학습 관련 동의서 제출 부탁드립니다.,정상
+"[Web발신]
+롯데카드 승인 조*주
+48,700원 일시불
+10/11 22:40
+쿠팡",정상
+"[Web발신]
+마이너스통장 신규 대상자입니다. 서류없이 당일 입금 ㅁㅁ링크",스미싱
+[주민센터] 신청하신 서류 발급이 완료되었습니다. 방문 수령 바랍니다. 자세히 보기: https://www.naver.com/ryy8,정상
+"[Web발신]
+신한은행 예금 만기 안내. 자세한 내용은 영업점 또는 1666-7050",정상
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 http://xn--t34qw.xyz",스미싱
+[국민연금공단] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 010-9244-1799,정상
+[주민센터] 신청하신 서류 발급이 완료되었습니다. 방문 수령 바랍니다. 앱에서 확인: https://www.naver.com/3fcd,정상
+"[Web발신]
+[검찰청] 귀하의 명의로 계좌가 개설되어 수사중입니다. 확인 http://me2.kr/ffme",스미싱
+"[Web발신]
+[백화점] 89,000원 결제가 완료되었습니다. 본인 아니면 02-4960-8856",스미싱
+[아파트관리사무소] 정기 소방점검이 4/09에 있습니다. 협조 부탁드립니다. 앱에서 확인: https://www.naver.com/5uce,정상
+"[Web발신]
+귀하의 명의로 휴대폰이 개통되었습니다. 신고 http://kr-ssxn.top",스미싱
+"롯데카드 카드 이용대금 128,000원이 정상 출금되었습니다. 앱에서 확인: https://www.naver.com/q7mg",정상
+"[Web발신]
+축하합니다! G마켓 경품 이벤트에 당첨되셨습니다 ㅁㅁ링크",스미싱
+나 지금 출발했어. 10:45쯤 도착할 것 같아 앱에서 확인: https://www.naver.com/cnxs,정상
+[경찰청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다. 앱에서 확인: https://www.naver.com/az5a,정상
+"[Web발신]
+무료 운세 이벤트 참여하고 상품 받아가세요 http://xn--6xerv.xyz",스미싱
+"[Web발신]
+우리은행 출금 128,000원
+6/28 17:33 자동이체",정상
+엄마 나 폰 고장나서 컴퓨터로 문자해. 급하게 필요한거 있어서 http://45q6.duckdns.org,스미싱
+비 온대. 우산 챙겨서 나가 자세히 보기: https://www.naver.com/qsvb,정상
+"[Web발신]
+[신한은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[국세청] 정부지원금 신청 대상자로 선정되셨습니다. 신청기한 오늘까지 http://xn--zdz8b.xyz",스미싱
+[질병관리청] 주민세 납부 기한은 4/09까지입니다. 문의는 1588-2281,정상
+"[Web발신]
+[농협은행] 고객님 신용등급 상승으로 추가한도 승인되었습니다 hxxp://bit.ly/rkmgv",스미싱
+[부고] 삼가 고인의 명복을 빕니다. 부고장 http://3c8f.duckdns.org,스미싱
+[세탁소] 맡기신 옷 세탁 완료되었습니다. 편하실 때 찾아가세요. 자세히 보기: https://www.naver.com/6eqz,정상
+"[Web발신]
+[이벤트] 무료 상품권 89,000원 선착순 지급중. 지금 신청 http://han.gl/p48r",스미싱
+"[Web발신]
+[긴급] 미사용 포인트 12,900점 오늘 소멸됩니다 http://han.gl/htr4",스미싱
+[학원] 박정호 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+[신세계몰] 2,480,000원 결제가 완료되었습니다. 본인 아니면 070-9780-8713",스미싱
+[미용실] 예약 7/05 17:33 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+[롯데택배] 고객님의 상품이 오늘 도착 예정입니다. 기사 조은주 1588-1662,정상
+"[Web발신]
+축하합니다! 백화점 경품 이벤트에 당첨되셨습니다 ㅁㅁ링크",스미싱
+임지은 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요. 앱에서 확인: https://www.naver.com/hevc,정상
+장 보러 가는데 뭐 필요한 거 있어? 자세히 보기: https://www.naver.com/pz2z,정상
+"[Web발신]
+재택 부업 모집. 하루 2시간 고수익 보장 ㅁㅁ링크",스미싱
+"[Web발신]
+[보안경고] 개인정보 유출이 확인되었습니다. 즉시 조치 hxxp://bit.ly/vygbj",스미싱
+"[Web발신]
+[신한은행] 비정상 로그인 감지. 계정 정지 예정입니다 ㅁㅁ링크",스미싱
+[알뜰폰] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다. 자세히 보기: https://www.naver.com/kn9j,정상
+월요일 출근 전에 보고서 초안 공유 부탁드립니다. 감사합니다.,정상
+[11번가] 주문번호 확인 결과 정상 배송 중입니다. 문의 010-1230-5104,정상
+"[Web발신]
+[하나카드] 해외결제 770,000원 승인. 본인 아닐시 즉시 문의 ㅁㅁ링크",스미싱
+[국세청] 주민세 납부 기한은 4/09까지입니다. 문의는 02-0012-3884,정상
+[햇살초등학교] 급식 식단표를 가정통신문으로 배부하였습니다.,정상
+[국세청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다.,정상
+[모바일 초대장] 우리 아이 돌잔치에 초대합니다 http://me2.kr/j4f4,스미싱
+"[Web발신]
+BC카드 승인 박*호
+128,000원 일시불
+4/09 22:40
+백화점 자세히 보기: https://www.naver.com/sp2s",정상
+[국민연금공단] 주민세 납부 기한은 9/23까지입니다. 문의는 010-8797-8547,정상
+[한빛고등학교] 급식 식단표를 가정통신문으로 배부하였습니다. 자세히 보기: https://www.naver.com/vp73,정상
+"[Web발신]
+[긴급] 미사용 포인트 128,000점 오늘 소멸됩니다 ㅁㅁ링크",스미싱
+[서울시청] 민방위 교육 일정 안내입니다. 대상자는 사이버교육 이수 바랍니다. 자세히 보기: https://www.naver.com/dfq8,정상
+정대현님 내일 회의 09:12으로 변경되었습니다. 확인 부탁드립니다. 자세히 보기: https://www.naver.com/z2gy,정상
+윤성호님 내일 회의 21:15으로 변경되었습니다. 확인 부탁드립니다.,정상
+"[Web발신]
+기업은행 체크카드 승인 356,000원 신세계몰 13:20 자세히 보기: https://www.naver.com/hstx",정상
+"[Web발신]
+[알림] 미납 통신요금 128,000원 정지 예정 안내 http://auwy.duckdns.org",스미싱
+"[Web발신]
+[관세청] 미납 과태료 128,000원 최종 안내. 미납시 재산압류 ㅁㅁ링크",스미싱
+"[Web발신]
+새마을금고 입금 2,480,000원
+잔액 128,000원
+6/28 21:15",정상
+"[Web발신]
+[관세청] 건강검진 미수검자 안내. 대상자 조회 ㅁㅁ링크",스미싱
+"[Web발신]
+[투자] 종목 무료 추천방 오픈. 수익률 182% 실화입니다 http://49yx.duckdns.org",스미싱
+"[Web발신]
+타지역에서 로그인 시도가 감지되었습니다. 본인확인 http://gm2m.duckdns.org",스미싱
+"[Web발신]
+[쿠팡] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+백화점 상품권 무료 증정 이벤트 당첨자로 선정되셨습니다 http://xn--p7agp.xyz",스미싱
+"[Web발신]
+소액으로 시작하는 재테크. 원금보장 고수익 http://vo.la/ex8s",스미싱
+오늘 회식 17:33에 시작합니다. 장소는 사무실 앞에서 모입니다. 자세히 보기: https://www.naver.com/x78m,정상
+"[Web발신]
+카카오뱅크 체크카드 승인 1,250,000원 백화점 13:20",정상
+[G마켓] 주문번호 확인 결과 정상 배송 중입니다. 문의 010-3287-9758 앱에서 확인: https://www.naver.com/p4x2,정상
+[중앙중학교] 내일은 단축수업입니다. 하교 시간 확인 부탁드립니다.,정상
+"[Web발신]
+[국민은행] 대출 심사 결과 안내드립니다. 결과 확인 ㅁㅁ링크",스미싱
+"[Web발신]
+[이마트] 48,700원 결제가 완료되었습니다. 본인 아니면 010-8685-3083",스미싱
+윤성호아 생일 축하해! 좋은 하루 보내,정상
+[롯데마트] 주문번호 확인 결과 정상 배송 중입니다. 문의 070-1966-1974 자세히 보기: https://www.naver.com/gaje,정상
+"[Web발신]
+[국세청] 소상공인 재난지원금 지급 대상 안내 http://7bhs.duckdns.org",스미싱
+"[Web발신]
+[국세청] 소상공인 재난지원금 지급 대상 안내 http://kr-xa99.top",스미싱
+"[Web발신]
+계정 도용 의심으로 이용이 제한되었습니다. 해제 http://vo.la/kmrh",스미싱
+[우체국택배] 배송이 완료되었습니다. 이용해 주셔서 감사합니다. 앱에서 확인: https://www.naver.com/vp4v,정상
+[SKT] 요금이 정상 납부되었습니다. 이용해 주셔서 감사합니다. 자세히 보기: https://www.naver.com/d9ag,정상
+"[Web발신]
+[법원] 전자소송 출석요구서가 송달되었습니다. 열람 hxxp://bit.ly/42pw2",스미싱
+"[Web발신]
+국민카드 승인 정*현
+356,000원 일시불
+1/12 19:48
+11번가 자세히 보기: https://www.naver.com/8e7j",정상
+비 온대. 우산 챙겨서 나가 앱에서 확인: https://www.naver.com/gdsj,정상
+연세이비인후과입니다. 내일 19:48 예약 확인 전화드렸는데 부재중이셨습니다. 010-0480-0197,정상
+나 지금 출발했어. 13:20쯤 도착할 것 같아 앱에서 확인: https://www.naver.com/3rkb,정상
+비 온대. 우산 챙겨서 나가 자세히 보기: https://www.naver.com/w797,정상
+[아파트관리사무소] 단수 안내: 2/03 10:45부터 2시간 단수 예정입니다.,정상
+"[Web발신]
+[11번가] 89,000원 결제가 완료되었습니다. 본인 아니면 02-8741-9481",스미싱
+강미경 대리님 요청하신 자료 메일로 보냈습니다. 확인 부탁드려요. 자세히 보기: https://www.naver.com/cv2c,정상
+"[Web발신]
+현대카드 승인 박*호
+1,250,000원 일시불
+5/17 21:15
+롯데마트",정상
+[건강보험공단] 주민세 납부 기한은 7/05까지입니다. 문의는 1588-5973,정상
+"[Web발신]
+[국민연금공단] 종합소득세 환급금 128,000원이 미수령 상태입니다. 신청 hxxp://bit.ly/9f2mn",스미싱
+[학원] 윤성호 학생 오늘 결석했습니다. 확인 부탁드립니다.,정상
+우리정형외과입니다. 처방하신 약 준비되었습니다. 방문해 주세요. 자세히 보기: https://www.naver.com/ewys,정상
+장 보러 가는데 뭐 필요한 거 있어? 앱에서 확인: https://www.naver.com/sfy7,정상
+"[Web발신]
+[이마트] 주문하신 상품이 결제 처리되었습니다. 취소 http://vo.la/s4aw",스미싱
+"[Web발신]
+[백화점] 주문하신 상품이 결제 처리되었습니다. 취소 ㅁㅁ링크",스미싱
+[중앙중학교] 현장학습 관련 동의서 제출 부탁드립니다. 앱에서 확인: https://www.naver.com/gv6f,정상
+[모바일 청첩장] 정대현 결혼합니다. 초대장 확인 ㅁㅁ링크,스미싱
+"[Web발신]
+[삼성카드] 해외결제 770,000원 승인. 본인 아닐시 즉시 문의 http://han.gl/cwkq",스미싱
+"[Web발신]
+신한카드 승인 임*은
+356,000원 일시불
+7/05 13:20
+롯데마트",정상
+[질병관리청] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 1666-8921,정상
+[건강보험공단] 예방접종 안내입니다. 가까운 보건소에서 접종 가능합니다. 문의 070-7000-7770,정상
+"[Web발신]
+[롯데택배] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 http://vo.la/9mdd",스미싱
+[중앙중학교] 현장학습 관련 동의서 제출 부탁드립니다. 자세히 보기: https://www.naver.com/xqqp,정상
+[행정안전부] 주민세 납부 기한은 3/21까지입니다. 문의는 010-7905-7493 앱에서 확인: https://www.naver.com/9dwc,정상
+한마음병원 검진 결과가 나왔습니다. 내원하셔서 상담 받으시기 바랍니다.,정상
+동생 오늘 저녁에 집에 몇 시쯤 와? 밥 차려놓을게,정상
+[도서관] 대출하신 도서 반납일이 2/03입니다. 자세히 보기: https://www.naver.com/bkeh,정상
+"[SKT] 이번 달 요금은 12,900원입니다. 자세한 내역은 고객센터 070-8560-3637 자세히 보기: https://www.naver.com/p233",정상
+[미용실] 예약 1/12 09:12 확인되었습니다. 늦지 않게 방문 부탁드려요.,정상
+"[Web발신]
+[한진택배] 미수령 택배 1건 보관중. 오늘까지 미확인시 반송됩니다 ㅁㅁ링크",스미싱
+"[Web발신]
+[새마을금고] 저금리 대환대출 최대 12,900원 한도확인 가능합니다 http://han.gl/udhq",스미싱
+"[Web발신]
+백신 접종 예약 변경 안내드립니다. 확인 http://vo.la/fjat",스미싱
+[아파트관리사무소] 단수 안내: 6/28 21:15부터 2시간 단수 예정입니다.,정상
+"[Web발신]
+[행정안전부] 건강검진 미수검자 안내. 대상자 조회 ㅁㅁ링크",스미싱
+"[Web발신]
+[롯데택배] 배송지 미확인 상품 반송 예정입니다. 확인 hxxp://bit.ly/yz277",스미싱
+"[Web발신]
+온라인 쇼핑몰 리뷰 알바 모집합니다. 건당 1만원 http://xn--8rkry.xyz",스미싱
+"[Web발신]
+국민은행 출금 12,900원
+1/12 10:45 자동이체",정상
+"현대카드 카드 이용대금 12,900원이 정상 출금되었습니다.",정상`;
+
+/* ==========================================================================
+   1. CSV 파싱
+   ========================================================================== */
+function parseCSV(text){
+  text = text.replace(/^﻿/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const rows = []; let row = [], cell = "", q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+      else cell += c;
+    }else{
+      if(c === '"') q = true;
+      else if(c === ','){ row.push(cell); cell = ""; }
+      else if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += c;
+    }
+  }
+  if(cell !== "" || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ""));
+}
+
+function rowsToDocs(rows){
+  if(!rows.length) return [];
+  const head = rows[0].map(h => h.trim());
+  let ti = head.indexOf("문자내용"), li = head.indexOf("분류");
+  let start = 1;
+  if(ti < 0 || li < 0){ ti = 0; li = 1; start = 0; }   // 헤더가 없는 CSV도 허용
+  const out = [];
+  for(let i = start; i < rows.length; i++){
+    const t = (rows[i][ti] || "").trim();
+    const raw = (rows[i][li] || "").trim();
+    if(!t || !raw) continue;
+    const y = /스미싱|스팸|사기|spam|1/i.test(raw) ? "스미싱" : "정상";
+    out.push({ text: t, label: y });
+  }
+  return out;
+}
+
+/* ==========================================================================
+   2. 토크나이저
+      한국어는 형태소 분석기 없이 처리해야 하므로
+      (1) 낱말 토큰 (2) 낱말 안의 글자 2-gram (3) 패턴 신호를 함께 씁니다.
+   ========================================================================== */
+const WORD_RE = /[가-힣]+|[A-Za-z]+|\d[\d,\.]*/g;
+const URL_RE  = /(https?:\/\/|hxxp:\/\/|www\.)[^\s]+|[A-Za-z0-9\-]+\.(com|net|kr|co\.kr|org|top|xyz|shop|link|la|gl|me|duckdns\.org)(\/[^\s]*)?|ㅁㅁ링크/gi;
+const PHONE_RE = /(0\d{1,2}[-\.\s]?\d{3,4}[-\.\s]?\d{4})|(1[5-8]\d{2}[-\.\s]?\d{4})/g;
+
+function signals(t){
+  const s = [];
+  if(URL_RE.test(t))   s.push("§링크");
+  URL_RE.lastIndex = 0;
+  if(PHONE_RE.test(t)) s.push("§전화번호");
+  PHONE_RE.lastIndex = 0;
+  if(/\[Web발신\]|\[web발신\]|웹발신/i.test(t)) s.push("§웹발신");
+  if(/\d{1,3}(,\d{3})+\s*원|\d+\s*만원/.test(t)) s.push("§금액");
+  if(/즉시|긴급|오늘까지|지금|기한|마감|당일|24시간|선착순/.test(t)) s.push("§긴급");
+  if(/무료|당첨|경품|증정|상품권|이벤트|추첨|축하/.test(t)) s.push("§공짜미끼");
+  if(/본인확인|인증|개인정보|계정|비밀번호|명의|주민번호/.test(t)) s.push("§개인정보");
+  if(/\[.{1,12}\]/.test(t)) s.push("§대괄호머리");
+  if(t.length > 60) s.push("§장문");
+  return s;
+}
+
+function tokenize(text){
+  const f = signals(text);
+  const t = text.replace(URL_RE, " ㅁㅁ링크 ").replace(PHONE_RE, " §전화 ");
+  let m;
+  WORD_RE.lastIndex = 0;
+  while((m = WORD_RE.exec(t)) !== null){
+    let w = m[0];
+    if(/^\d/.test(w)){ f.push("§숫자" + Math.min(w.replace(/[^\d]/g, "").length, 8)); continue; }
+    if(/^[A-Za-z]+$/.test(w)) w = w.toLowerCase();
+    if(w.length < 1) continue;
+    f.push(w);
+    if(/[가-힣]/.test(w)){
+      for(let i = 0; i + 2 <= w.length; i++) f.push("#" + w.substr(i, 2));   // 글자 2-gram
+      if(w.length >= 3) f.push("^" + w.substr(0, 2));                        // 어간 근사
+    }
+  }
+  return f;
+}
+
+/** 하이라이트용: 원문 속 낱말의 위치까지 뽑아낸다 */
+function spans(text){
+  const out = [];
+  let m;
+  URL_RE.lastIndex = 0;
+  while((m = URL_RE.exec(text)) !== null) out.push({ s: m.index, e: m.index + m[0].length, w: "ㅁㅁ링크", url: true });
+  PHONE_RE.lastIndex = 0;
+  while((m = PHONE_RE.exec(text)) !== null) out.push({ s: m.index, e: m.index + m[0].length, w: "§전화", url: false });
+  WORD_RE.lastIndex = 0;
+  while((m = WORD_RE.exec(text)) !== null){
+    const s = m.index, e = s + m[0].length;
+    if(out.some(o => s < o.e && e > o.s)) continue;      // URL/전화번호와 겹치면 건너뜀
+    if(/^\d/.test(m[0])) continue;
+    out.push({ s, e, w: /^[A-Za-z]+$/.test(m[0]) ? m[0].toLowerCase() : m[0], url: false });
+  }
+  return out.sort((a, b) => a.s - b.s);
+}
+
+/* ==========================================================================
+   3. 다항 나이브 베이즈
+   ========================================================================== */
+const ALPHA = 0.25;
+let MODEL = null, DOCS = [];
+
+function train(docs){
+  const cnt = { "스미싱": new Map(), "정상": new Map() };
+  const tot = { "스미싱": 0, "정상": 0 };
+  const n   = { "스미싱": 0, "정상": 0 };
+  const vocab = new Set();
+  const df = new Map();                        // 문서빈도 (점지도/워드클라우드용)
+
+  for(const d of docs){
+    const f = tokenize(d.text);
+    n[d.label]++;
+    const seen = new Set();
+    for(const w of f){
+      cnt[d.label].set(w, (cnt[d.label].get(w) || 0) + 1);
+      tot[d.label]++; vocab.add(w);
+      if(!seen.has(w)){ seen.add(w); df.set(w, (df.get(w) || 0) + 1); }
+    }
+  }
+  const V = vocab.size;
+  const N = docs.length || 1;
+  const model = {
+    cnt, tot, V, df, N,
+    prior: {
+      "스미싱": Math.log((n["스미싱"] + 1) / (N + 2)),
+      "정상":   Math.log((n["정상"]   + 1) / (N + 2))
+    },
+    nDoc: n,
+    denom: {
+      "스미싱": Math.log(tot["스미싱"] + ALPHA * V),
+      "정상":   Math.log(tot["정상"]   + ALPHA * V)
+    }
+  };
+  model.llr = w => lp(model, w, "스미싱") - lp(model, w, "정상");
+  return model;
+}
+
+function lp(model, w, c){
+  return Math.log((model.cnt[c].get(w) || 0) + ALPHA) - model.denom[c];
+}
+
+/** 로그 오즈 → 0~1 위험도 (문장 길이에 따라 완만하게 보정) */
+function calibrate(z, nFeat){
+  const T = 5 + 2.4 * Math.sqrt(Math.max(nFeat, 1));
+  return 1 / (1 + Math.exp(-z / T));
+}
+
+function predict(text, model){
+  const f = tokenize(text);
+  let z = model.prior["스미싱"] - model.prior["정상"];
+  for(const w of f) z += model.llr(w);
+  return { p: calibrate(z, f.length), z, nFeat: f.length };
+}
+
+/* 교차검증(5-겹)으로 정확도 확인 */
+function crossVal(docs){
+  const K = 5, idx = docs.map((_, i) => i);
+  let rng = 7; const rnd = () => (rng = (rng * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for(let i = idx.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  let ok = 0;
+  for(let k = 0; k < K; k++){
+    const te = [], tr = [];
+    idx.forEach((v, i) => (i % K === k ? te : tr).push(docs[v]));
+    if(!tr.length || !te.length) continue;
+    const m = train(tr);
+    for(const d of te){
+      const g = predict(d.text, m).p >= 0.5 ? "스미싱" : "정상";
+      if(g === d.label) ok++;
+    }
+  }
+  return ok / docs.length;
+}
+
+/* ==========================================================================
+   4. 화면 갱신
+   ========================================================================== */
+const $ = id => document.getElementById(id);
+let LAST = null;
+
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2400);
+}
+
+function esc(s){
+  return s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+/** 낱말 하나의 위험 기여도 = 낱말 + 그 안의 2-gram 로그오즈 */
+function wordScore(w, model){
+  let s = model.llr(w);
+  if(/[가-힣]/.test(w)){
+    let k = 0;
+    for(let i = 0; i + 2 <= w.length; i++){ s += 0.5 * model.llr("#" + w.substr(i, 2)); k++; }
+    if(k) s /= (1 + 0.25 * k);
+  }
+  return s;
+}
+
+function judge(){
+  const text = $("inp").value.trim();
+  if(!text){ toast("문자 내용을 먼저 붙여넣어 주세요."); $("inp").focus(); return; }
+
+  const r = predict(text, MODEL);
+  const pct = Math.round(r.p * 100);
+  LAST = { text, pct, label: pct >= 70 ? "스미싱" : "정상" };
+
+  $("result").classList.add("on");
+
+  // 게이지
+  const L = 257.6;                                  // 반원 호 길이 (r=82)
+  $("arc").setAttribute("stroke-dasharray", (L * r.p).toFixed(1) + " 999");
+  $("arc").setAttribute("stroke", pct >= 70 ? "var(--danger)" : pct >= 40 ? "var(--warn)" : "var(--safe)");
+  $("pct").textContent = pct + "%";
+  $("pct").style.color = pct >= 70 ? "var(--danger)" : pct >= 40 ? "var(--warn)" : "var(--safe)";
+
+  // 판정
+  const v = $("vbox");
+  v.className = "verdict " + (pct >= 70 ? "v-danger" : pct >= 40 ? "v-warn" : "v-safe");
+  $("vico").textContent   = pct >= 70 ? "🚫" : pct >= 40 ? "⚠️" : "✅";
+  $("vtitle").textContent = pct >= 70 ? "스미싱 의심 문자입니다"
+                          : pct >= 40 ? "주의가 필요한 문자입니다"
+                          : "정상 문자로 보입니다";
+  $("vsub").textContent   = pct >= 70 ? "링크를 누르지 마시고 바로 삭제하세요."
+                          : pct >= 40 ? "보낸 사람을 꼭 확인하세요."
+                          : "다만 100% 안전을 보장하지는 않습니다.";
+
+  // 하이라이트
+  const sp = spans(text);
+  let html = "", cur = 0;
+  const contrib = [];
+  for(const s of sp){
+    const sc = wordScore(s.w, MODEL);
+    html += esc(text.slice(cur, s.s));
+    const frag = esc(text.slice(s.s, s.e));
+    if(sc > 1.6)      { html += `<mark class="h2">${frag}</mark>`; contrib.push([text.slice(s.s, s.e), sc]); }
+    else if(sc > 0.55){ html += `<mark class="h1">${frag}</mark>`; contrib.push([text.slice(s.s, s.e), sc]); }
+    else html += frag;
+    cur = s.e;
+  }
+  html += esc(text.slice(cur));
+  $("hl").innerHTML = html || "(내용 없음)";
+
+  // 근거 단어 칩
+  const uniq = new Map();
+  contrib.forEach(([w, s]) => { if(!uniq.has(w) || uniq.get(w) < s) uniq.set(w, s); });
+  const chips = [...uniq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  $("chips").innerHTML = chips.length
+    ? chips.map(([w, s]) => `<span class="chip">${esc(w)} <small>+${s.toFixed(1)}</small></span>`).join("")
+    : `<span class="chip safe">뚜렷한 위험 신호 단어가 없습니다</span>`;
+
+  // 대응 요령
+  $("tip").innerHTML = pct >= 40
+    ? `<b>이렇게 하세요</b><ul>
+         <li>문자 속 <b>링크(주소)를 절대 누르지 마세요.</b></li>
+         <li>기관·택배사는 문자로 <b>앱 설치나 개인정보를 요구하지 않습니다.</b></li>
+         <li>확인이 필요하면 문자 속 번호가 아니라 <b>공식 대표번호</b>로 직접 거세요.</li>
+         <li>이미 눌렀다면 데이터·와이파이를 끄고 <b>118</b>에 문의하세요.</li>
+       </ul>`
+    : `<b>참고하세요</b><ul>
+         <li>정상으로 보이지만, 돈이나 개인정보를 요구하면 다시 의심하세요.</li>
+         <li>아는 사람이라도 <b>송금 요청</b>은 꼭 전화로 확인하세요.</li>
+       </ul>`;
+
+  if(pct >= 70 && $("auto").checked) store(text, "스미싱", pct, true);
+
+  drawMap(text);
+  $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ── TOP 10 ── */
+function renderTop10(){
+  const arr = [];
+  for(const [w, c] of MODEL.cnt["스미싱"]){
+    if(w.startsWith("#") || w.startsWith("^") || w.startsWith("§")) continue;
+    if(!/[가-힣A-Za-z]/.test(w) || w.length < 2) continue;
+    if(c < 5) continue;
+    const s = MODEL.llr(w) * Math.log(1 + c);        // 신호 세기 × 등장량
+    arr.push([w, s, c, MODEL.cnt["정상"].get(w) || 0]);
+  }
+  arr.sort((a, b) => b[1] - a[1]);
+  const top = arr.slice(0, 10), max = top.length ? top[0][1] : 1;
+  $("top10").innerHTML = top.map(([w, s, cs, cn], i) => `
+    <li>
+      <span class="rank">${i + 1}</span>
+      <span>
+        <span class="wname">${esc(w)}</span>
+        <span class="bar"><i style="width:${Math.max(6, s / max * 100).toFixed(0)}%"></i></span>
+      </span>
+      <span class="wnum">스미싱 ${cs}회<br>정상 ${cn}회</span>
+    </li>`).join("");
+  return top;
+}
+
+/* ── 워드클라우드 ── */
+function drawCloud(){
+  const cv = $("wc"), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = cv.clientWidth || 700, H = 440;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  const arr = [];
+  for(const [w, c] of MODEL.cnt["스미싱"]){
+    if(w.startsWith("#") || w.startsWith("^") || w.startsWith("§")) continue;
+    if(!/[가-힣A-Za-z]/.test(w) || w.length < 2 || c < 3) continue;
+    arr.push([w, MODEL.llr(w) * Math.log(1 + c)]);
+  }
+  arr.sort((a, b) => b[1] - a[1]);
+  const words = arr.filter(x => x[1] > 0).slice(0, 90);
+  if(!words.length) return;
+
+  const hi = words[0][1], lo = words[words.length - 1][1];
+  const placed = [];
+  const hit = r => placed.some(p => !(r.x + r.w < p.x || r.x > p.x + p.w || r.y + r.h < p.y || r.y > p.y + p.h));
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const danger = css("--danger") || "#d32d2d";
+  const sub = css("--sub") || "#5b6b80";
+
+  g.textBaseline = "top";
+  words.forEach(([w, s], i) => {
+    const t = (s - lo) / (hi - lo || 1);
+    const size = Math.max(13, Math.round(13 + Math.pow(t, 1.5) * 52));
+    g.font = `800 ${size}px "Malgun Gothic","Apple SD Gothic Neo",sans-serif`;
+    const tw = g.measureText(w).width, th = size * 1.16;
+    let x, y, ok = false;
+    for(let a = 0; a < 2600; a++){
+      const ang = a * 0.32, rad = 3.1 * ang;
+      x = W / 2 + rad * Math.cos(ang) * 1.45 - tw / 2;
+      y = H / 2 + rad * Math.sin(ang) * 0.62 - th / 2;
+      if(x < 2 || y < 2 || x + tw > W - 2 || y + th > H - 2) continue;
+      if(!hit({ x: x - 2, y: y - 2, w: tw + 4, h: th + 4 })){ ok = true; break; }
+    }
+    if(!ok) return;
+    placed.push({ x: x - 2, y: y - 2, w: tw + 4, h: th + 4 });
+    g.fillStyle = t > 0.6 ? danger : t > 0.28 ? (i % 2 ? "#b3431f" : "#7a4bbd") : sub;
+    g.globalAlpha = 0.55 + 0.45 * t;
+    g.fillText(w, x, y);
+  });
+  g.globalAlpha = 1;
+}
+
+/* ── 점지도 (TF-IDF → 주성분 2개) ── */
+let PCA = null;
+function buildPCA(){
+  const terms = [];
+  for(const [w, d] of MODEL.df){
+    if(w.startsWith("^")) continue;
+    if(d < Math.max(6, MODEL.N * 0.01) || d > MODEL.N * 0.75) continue;
+    terms.push([w, d]);
+  }
+  terms.sort((a, b) => b[1] - a[1]);
+  const T = terms.slice(0, 160).map(x => x[0]);
+  const ti = new Map(T.map((w, i) => [w, i]));
+  const idf = T.map(w => Math.log(MODEL.N / (1 + MODEL.df.get(w))));
+
+  const vec = txt => {
+    const v = new Float64Array(T.length);
+    for(const w of tokenize(txt)){ const i = ti.get(w); if(i !== undefined) v[i] += 1; }
+    let n = 0;
+    for(let i = 0; i < v.length; i++){ v[i] = Math.log(1 + v[i]) * idf[i]; n += v[i] * v[i]; }
+    n = Math.sqrt(n) || 1;
+    for(let i = 0; i < v.length; i++) v[i] /= n;
+    return v;
+  };
+
+  const X = DOCS.map(d => vec(d.text));
+  const mean = new Float64Array(T.length);
+  X.forEach(v => { for(let i = 0; i < v.length; i++) mean[i] += v[i]; });
+  for(let i = 0; i < mean.length; i++) mean[i] /= X.length;
+  X.forEach(v => { for(let i = 0; i < v.length; i++) v[i] -= mean[i]; });
+
+  const power = (X, prev) => {                       // 거듭제곱법으로 주성분 1개
+    let u = new Float64Array(X[0].length);
+    let sd = 12345;
+    for(let i = 0; i < u.length; i++){ sd = (sd * 1103515245 + 12345) & 0x7fffffff; u[i] = sd / 0x7fffffff - 0.5; }
+    for(let it = 0; it < 40; it++){
+      const nu = new Float64Array(u.length);
+      for(const v of X){
+        let d = 0;
+        for(let i = 0; i < v.length; i++) d += v[i] * u[i];
+        for(let i = 0; i < v.length; i++) nu[i] += d * v[i];
+      }
+      if(prev){                                       // 이전 주성분 성분 제거
+        let d = 0;
+        for(let i = 0; i < nu.length; i++) d += nu[i] * prev[i];
+        for(let i = 0; i < nu.length; i++) nu[i] -= d * prev[i];
+      }
+      let n = 0;
+      for(let i = 0; i < nu.length; i++) n += nu[i] * nu[i];
+      n = Math.sqrt(n) || 1;
+      for(let i = 0; i < nu.length; i++) nu[i] /= n;
+      u = nu;
+    }
+    return u;
+  };
+  // 가로축은 나이브 베이즈가 배운 "스미싱 신호 방향",
+  // 세로축은 그 축과 겹치지 않는 범위에서 문자들이 가장 크게 갈리는 방향(주성분).
+  const p1 = new Float64Array(T.length);
+  { let n = 0;
+    for(let i = 0; i < T.length; i++){ p1[i] = MODEL.llr(T[i]); n += p1[i] * p1[i]; }
+    n = Math.sqrt(n) || 1;
+    for(let i = 0; i < T.length; i++) p1[i] /= n; }
+  const p2 = power(X, p1);
+  const proj = v => {
+    let a = 0, b = 0;
+    for(let i = 0; i < v.length; i++){ a += v[i] * p1[i]; b += v[i] * p2[i]; }
+    return [a, b];
+  };
+  const pts = X.map((v, i) => { const [a, b] = proj(v); return { x: a, y: b, l: DOCS[i].label }; });
+  // 극단값 몇 개가 축을 늘려 점들이 한쪽에 뭉치지 않도록 분위수로 범위를 잡는다
+  const q = (arr, r) => { const s = arr.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.max(0, Math.round(r * (s.length - 1))))]; };
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  PCA = {
+    pts, T, ti, idf, mean, p1, p2,
+    minx: q(xs, 0.01), maxx: q(xs, 0.99),
+    miny: q(ys, 0.01), maxy: q(ys, 0.99),
+    embed: txt => { const v = vec(txt); for(let i = 0; i < v.length; i++) v[i] -= mean[i]; return proj(v); }
+  };
+}
+
+function drawMap(userText){
+  if(!PCA) return;
+  const cv = $("mapc"), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = cv.clientWidth || 700, H = 440, pad = 22;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+  const sx = v => cl(pad + (v - PCA.minx) / ((PCA.maxx - PCA.minx) || 1) * (W - 2 * pad), pad, W - pad);
+  const sy = v => cl(H - pad - (v - PCA.miny) / ((PCA.maxy - PCA.miny) || 1) * (H - 2 * pad), pad, H - pad);
+
+  // 가로축 안내선
+  g.strokeStyle = "rgba(128,128,128,.35)"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(pad, H - pad + 4); g.lineTo(W - pad, H - pad + 4); g.stroke();
+  g.font = '700 12px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+  g.fillStyle = "rgba(128,128,128,.95)";
+  g.textAlign = "left";  g.fillText("← 정상에 가까움", pad + 2, H - pad - 2);
+  g.textAlign = "right"; g.fillText("스미싱에 가까움 →", W - pad - 2, H - pad - 2);
+
+  g.globalAlpha = 0.6;
+  for(const cls of ["정상", "스미싱"]){                    // 겹칠 때 스미싱이 위로 오도록
+    g.fillStyle = cls === "스미싱" ? "#d64545" : "#2f7fbf";
+    for(const p of PCA.pts){
+      if(p.l !== cls) continue;
+      g.beginPath();
+      g.arc(sx(p.x), sy(p.y), 4.2, 0, 6.2832);
+      g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+
+  if(userText && userText.trim()){
+    const [a, b] = PCA.embed(userText);
+    const x = sx(a), y = sy(b);
+    g.beginPath(); g.arc(x, y, 13, 0, 6.2832);
+    g.fillStyle = "rgba(0,0,0,.10)"; g.fill();
+    g.beginPath(); g.arc(x, y, 8.5, 0, 6.2832);
+    g.fillStyle = "#111"; g.fill();
+    g.lineWidth = 3.5; g.strokeStyle = "#fff"; g.stroke();
+    const right = x > W - 120;
+    g.font = '800 15px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+    g.textAlign = right ? "right" : "left";
+    g.lineWidth = 4; g.strokeStyle = "#fff";                 // 밝은/어두운 배경 모두에서 읽히도록 흰 테두리
+    g.strokeText("내 문자", x + (right ? -15 : 15), y + 5);
+    g.fillStyle = "#111";
+    g.fillText("내 문자", x + (right ? -15 : 15), y + 5);
+  }
+}
+
+/* ==========================================================================
+   5. 보관함 (localStorage)
+   ========================================================================== */
+const KEY = "smishing_reports_v1";
+const load = () => { try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } };
+const save = a => { try{ localStorage.setItem(KEY, JSON.stringify(a.slice(-500))); }catch(e){} };
+
+function store(text, label, pct, silent){
+  const a = load();
+  if(a.some(r => r.text === text && r.label === label)){ if(!silent) toast("이미 보관된 문자입니다."); return; }
+  a.push({ text, label, pct: pct ?? null, ts: Date.now() });
+  save(a); renderStore();
+  toast(label === "스미싱" ? "🚨 스팸 문자로 보관했습니다." : "✅ 정상 문자로 보관했습니다.");
+}
+
+function renderStore(){
+  const a = load().slice().reverse();
+  $("s1").textContent = a.length;
+  $("s2").textContent = a.filter(r => r.label === "스미싱").length;
+  $("stbody").innerHTML = a.length
+    ? a.slice(0, 30).map(r => `<tr>
+        <td style="white-space:nowrap">${new Date(r.ts).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+        <td><span class="tag ${r.label === "스미싱" ? "s" : "n"}">${r.label}</span></td>
+        <td class="m">${esc(r.text.length > 70 ? r.text.slice(0, 70) + "…" : r.text)}</td></tr>`).join("")
+    : `<tr><td colspan="3" style="color:var(--sub);padding:16px 6px">아직 보관된 문자가 없습니다.</td></tr>`;
+}
+
+/* ==========================================================================
+   6. 전체 초기화
+   ========================================================================== */
+function rebuild(docs, note){
+  DOCS = docs;
+  MODEL = train(DOCS);
+  $("s3").textContent = DOCS.length.toLocaleString("ko-KR");
+  $("s4").textContent = "계산 중…";
+  renderTop10(); drawCloud();
+  buildPCA(); drawMap(LAST ? LAST.text : "");
+  renderStore();
+  setTimeout(() => {
+    const acc = crossVal(DOCS);
+    $("s4").textContent = (acc * 100).toFixed(1) + "%";
+  }, 30);
+  if(note) toast(note);
+}
+
+const BASE = rowsToDocs(parseCSV(RAW_CSV));
+
+/* ==========================================================================
+   7. 이벤트
+   ========================================================================== */
+$("go").addEventListener("click", judge);
+$("inp").addEventListener("keydown", e => { if(e.ctrlKey && e.key === "Enter") judge(); });
+$("clr").addEventListener("click", () => { $("inp").value = ""; $("result").classList.remove("on"); $("inp").focus(); });
+$("ex1").addEventListener("click", () => {
+  $("inp").value = "[Web발신]\n[국세청] 종합소득세 환급금 356,000원이 미수령 상태입니다. 신청기한 오늘까지 ㅁㅁ링크";
+  judge();
+});
+$("ex2").addEventListener("click", () => {
+  $("inp").value = "[CJ대한통운] 고객님의 상품이 오늘 도착 예정입니다. 기사 김민수 010-2847-1193";
+  judge();
+});
+$("rep").addEventListener("click",   () => LAST ? store(LAST.text, "스미싱", LAST.pct) : toast("먼저 문자를 판별해 주세요."));
+$("repok").addEventListener("click", () => LAST ? store(LAST.text, "정상",   LAST.pct) : toast("먼저 문자를 판별해 주세요."));
+
+$("retrain").addEventListener("click", () => {
+  const extra = load().map(r => ({ text: r.text, label: r.label }));
+  if(!extra.length){ toast("보관된 문자가 없습니다."); return; }
+  rebuild(BASE.concat(extra), `보관 문자 ${extra.length}건을 더해 다시 학습했습니다.`);
+});
+
+$("exp").addEventListener("click", () => {
+  const a = load();
+  if(!a.length){ toast("내려받을 문자가 없습니다."); return; }
+  const q = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const csv = "﻿문자내용,분류,위험도,보관시각\n" +
+    a.map(r => [q(r.text), r.label, r.pct ?? "", new Date(r.ts).toISOString()].join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a2 = document.createElement("a");
+  a2.href = url; a2.download = "신고문자_보관함.csv"; a2.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+});
+
+$("del").addEventListener("click", () => {
+  if(!confirm("보관된 문자를 모두 지울까요? 되돌릴 수 없습니다.")) return;
+  localStorage.removeItem(KEY); renderStore(); toast("보관함을 비웠습니다.");
+});
+
+$("csv").addEventListener("change", e => {
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const docs = rowsToDocs(parseCSV(String(rd.result)));
+    if(docs.length < 10){ toast("문자내용/분류 열을 찾지 못했습니다."); return; }
+    rebuild(docs, `내 데이터 ${docs.length.toLocaleString("ko-KR")}건으로 다시 학습했습니다.`);
+  };
+  rd.readAsText(f, "utf-8");
+});
+
+$("reset").addEventListener("click", () => { $("csv").value = ""; rebuild(BASE, "기본 데이터로 되돌렸습니다."); });
+
+document.querySelectorAll(".fsbtn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".fsbtn").forEach(x => x.setAttribute("aria-pressed", "false"));
+  b.setAttribute("aria-pressed", "true");
+  document.documentElement.style.setProperty("--fs", b.dataset.fs + "px");
+  try{ localStorage.setItem("smishing_fs", b.dataset.fs); }catch(e){}
+  setTimeout(() => { drawCloud(); drawMap(LAST ? LAST.text : ""); }, 60);
+}));
+
+let rz;
+window.addEventListener("resize", () => {
+  clearTimeout(rz);
+  rz = setTimeout(() => { drawCloud(); drawMap(LAST ? LAST.text : ""); }, 220);
+});
+
+/* ==========================================================================
+   8. PWA (매니페스트를 코드 안에서 만들어 붙임 → 파일 하나로 동작)
+   ========================================================================== */
+(function pwa(){
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="108" fill="#1b4fa8"/>
+    <rect x="146" y="86" width="220" height="340" rx="34" fill="#fff"/>
+    <rect x="176" y="132" width="160" height="200" rx="14" fill="#e6ecf7"/>
+    <circle cx="256" cy="382" r="20" fill="#c9d5ea"/>
+    <circle cx="352" cy="150" r="86" fill="#d32d2d"/>
+    <path d="M312 110 L392 190 M392 110 L312 190" stroke="#fff" stroke-width="30" stroke-linecap="round"/>
+  </svg>`;
+  const b64 = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+  const icon = "data:image/svg+xml;base64," + b64(svg);
+  const manifest = {
+    name: "스미싱 문자 판별기",
+    short_name: "스미싱판별",
+    description: "받은 문자를 붙여넣으면 스미싱 위험도를 알려줍니다.",
+    start_url: ".",
+    scope: ".",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#f4f6fa",
+    theme_color: "#1b4fa8",
+    lang: "ko",
+    icons: [
+      { src: icon, sizes: "192x192", type: "image/svg+xml", purpose: "any" },
+      { src: icon, sizes: "512x512", type: "image/svg+xml", purpose: "any" },
+      { src: icon, sizes: "512x512", type: "image/svg+xml", purpose: "maskable" }
+    ]
+  };
+  const add = (rel, href, extra) => {
+    const l = document.createElement("link");
+    l.rel = rel; l.href = href;
+    if(extra) Object.assign(l, extra);
+    document.head.appendChild(l);
+  };
+  add("manifest", "data:application/manifest+json;base64," + b64(JSON.stringify(manifest)));
+  add("icon", icon, { type: "image/svg+xml" });
+  add("apple-touch-icon", icon);
+  const meta = (n, c) => {
+    const m = document.createElement("meta");
+    m.name = n; m.content = c;
+    document.head.appendChild(m);
+  };
+  meta("theme-color", "#1b4fa8");
+  meta("apple-mobile-web-app-capable", "yes");
+  meta("apple-mobile-web-app-status-bar-style", "black-translucent");
+  meta("apple-mobile-web-app-title", "스미싱판별");
+  meta("mobile-web-app-capable", "yes");
+  if(!document.querySelector('meta[name="viewport"]')) meta("viewport", "width=device-width, initial-scale=1, viewport-fit=cover");
+
+  // sw.js 를 같은 폴더에 두면 오프라인까지 지원 (없으면 조용히 넘어감)
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    window.addEventListener("load", () => {
+      fetch("sw.js", { method: "HEAD" })
+        .then(r => { if(r.ok) navigator.serviceWorker.register("sw.js").catch(() => {}); })
+        .catch(() => {});
+    });
+  }
+})();
+
+/* ==========================================================================
+   9. 시작
+   ========================================================================== */
+try{
+  const fs = localStorage.getItem("smishing_fs");
+  if(fs){
+    document.documentElement.style.setProperty("--fs", fs + "px");
+    document.querySelectorAll(".fsbtn").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.fs === fs)));
+  }
+}catch(e){}
+
+rebuild(BASE);
+</script>
